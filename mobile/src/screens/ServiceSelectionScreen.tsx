@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { getCurrentUser, saveUserServices } from '../services/authService';
+import { saveUserServices } from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 import { SERVICIOS, Service, searchServices } from '../constants/services';
 import { ServiceCard } from '../components/ServiceCard';
@@ -32,19 +32,20 @@ export const ServiceSelectionScreen: React.FC = () => {
   );
   const [loading, setLoading] = useState(false);
 
-  // Verificar sesión al montar el componente (opcional, la función RPC maneja el registro inicial)
+  // Verificar sesión al montar el componente
+  // Durante el registro, el usuario puede no estar en la tabla users aún, así que solo verificamos la sesión de Auth
   React.useEffect(() => {
     const checkSession = async () => {
-      const { user, error } = await getCurrentUser();
-      if (error || !user) {
-        console.warn('Advertencia: No se pudo verificar sesión en ServiceSelection:', error);
-        // No bloquear, la función RPC puede manejar el registro inicial
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.warn('Advertencia: No hay sesión activa en ServiceSelection:', sessionError);
+        // No mostrar error al usuario, solo log
       } else {
-        console.log('Sesión verificada en ServiceSelection:', user.id);
+        console.log('Sesión verificada en ServiceSelection:', session.user.id);
       }
     };
     checkSession();
-  }, [navigation]);
+  }, []);
 
   const toggleCategory = (category: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -98,24 +99,36 @@ export const ServiceSelectionScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      // Intentar obtener el userId de la sesión de Supabase Auth primero
-      // Esto funciona incluso durante el registro inicial
+      // Obtener el userId de la sesión de Supabase Auth
+      // Durante el registro, la sesión debería estar establecida después de signUp
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
       let userId: string | null = null;
 
-      if (session?.user?.id) {
-        userId = session.user.id;
-        console.log('UserId obtenido de la sesión:', userId);
-      } else {
-        // Si no hay sesión, intentar obtener el usuario actual
-        const { user, error: userError } = await getCurrentUser();
-        if (userError || !user) {
+      if (sessionError) {
+        console.error('Error al obtener sesión:', sessionError);
+        // Si hay error al obtener sesión, intentar obtener directamente de Auth
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        if (authError || !authUser) {
           Alert.alert('Error', 'No se pudo obtener la información del usuario. Por favor, intenta iniciar sesión nuevamente.');
           setLoading(false);
           return;
         }
-        userId = user.id;
-        console.log('UserId obtenido de getCurrentUser:', userId);
+        userId = authUser.id;
+        console.log('UserId obtenido de getUser (fallback):', userId);
+      } else if (session?.user?.id) {
+        userId = session.user.id;
+        console.log('UserId obtenido de la sesión:', userId);
+      } else {
+        // Si no hay sesión, intentar obtenerla directamente de Auth
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        if (authError || !authUser) {
+          Alert.alert('Error', 'No se pudo obtener la información del usuario. Por favor, intenta iniciar sesión nuevamente.');
+          setLoading(false);
+          return;
+        }
+        userId = authUser.id;
+        console.log('UserId obtenido de getUser:', userId);
       }
 
       if (!userId) {

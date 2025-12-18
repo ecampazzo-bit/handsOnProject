@@ -1,0 +1,12 @@
+{
+  "name": "handson-project",
+  "version": "1.0.0",
+  "description": "HandsOn Project - Mobile Application",
+  "private": true,
+  "scripts": {
+    "start": "cd mobile && npm start",
+    "android": "cd mobile && npm run android",
+    "ios": "cd mobile && npm run ios",
+    "web": "cd mobile && npm run web"
+  }
+}
