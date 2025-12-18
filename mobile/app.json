@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "HandsOn",
+    "slug": "handson-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.handson.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#4F46E5"
+      },
+      "package": "com.handson.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "handson",
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "supabaseUrl": "https://kqxnjpyupcxbajuzsbtx.supabase.co",
+      "supabaseAnonKey": "sb_publishable_ztPj9JwZiHUO_CcW6VnSlA_BePbKtt0"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
+
