@@ -111,19 +111,22 @@ export const LoginScreen: React.FC = () => {
 
       if (error) {
         // Detectar si el error es porque el email no está verificado
-        const errorMessage = error.message?.toLowerCase() || "";
+        const isEmailNotVerified = (error as any).isEmailNotVerified || false;
+        const errorMessageLower = error.message?.toLowerCase() || "";
         const isEmailNotConfirmed =
-          errorMessage.includes("email not confirmed") ||
-          errorMessage.includes("email not verified") ||
-          errorMessage.includes("verificar") ||
-          errorMessage.includes("confirmar") ||
-          (error as any).code === "email_not_confirmed";
+          isEmailNotVerified ||
+          errorMessageLower.includes("email no ha sido verificado") ||
+          errorMessageLower.includes("email not confirmed") ||
+          errorMessageLower.includes("email not verified") ||
+          errorMessageLower.includes("verificar tu email") ||
+          errorMessageLower.includes("confirma tu email");
 
         if (isEmailNotConfirmed) {
           // Mostrar alert con opción para reenviar el email
           Alert.alert(
             "Email no verificado",
-            "Tu email no ha sido verificado. ¿Deseas que te enviemos un nuevo email de verificación?",
+            error.message ||
+              "Tu email no ha sido verificado. ¿Deseas que te enviemos un nuevo email de verificación?",
             [
               {
                 text: "Cancelar",
@@ -142,11 +145,27 @@ export const LoginScreen: React.FC = () => {
             ]
           );
         } else {
-          Alert.alert(
-            "Error de inicio de sesión",
+          // Mensaje específico para otros errores
+          let errorMessage =
             error.message ||
-              "Credenciales inválidas. Por favor, intenta nuevamente."
-          );
+            "Credenciales inválidas. Por favor, intenta nuevamente.";
+
+          if (
+            error.status === 502 ||
+            error.message?.includes("502") ||
+            error.message?.includes("no está disponible")
+          ) {
+            errorMessage =
+              "El servidor no está disponible temporalmente. Por favor, espera unos segundos e intenta nuevamente.";
+          } else if (
+            error.message?.includes("Network") ||
+            error.message?.includes("network")
+          ) {
+            errorMessage =
+              "Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.";
+          }
+
+          Alert.alert("Error de inicio de sesión", errorMessage);
         }
         return;
       }
@@ -280,6 +299,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
+    paddingTop: 60,
     justifyContent: "center",
   },
   header: {

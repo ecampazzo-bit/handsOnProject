@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,26 +7,30 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { saveUserServices } from '../services/authService';
-import { supabase } from '../services/supabaseClient';
-import { SERVICIOS, Service, searchServices } from '../constants/services';
-import { ServiceCard } from '../components/ServiceCard';
-import { Button } from '../components/Button';
-import { colors } from '../constants/colors';
-import { RootStackParamList } from '../types/navigation';
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { saveUserServices, getCurrentUserId } from "../services/authService";
+import { supabase } from "../services/supabaseClient";
+import { SERVICIOS, Service, searchServices } from "../constants/services";
+import { ServiceCard } from "../components/ServiceCard";
+import { Button } from "../components/Button";
+import { colors } from "../constants/colors";
+import { RootStackParamList } from "../types/navigation";
 
 type ServiceSelectionScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
-  'ServiceSelection'
+  "ServiceSelection"
 >;
 
-export const ServiceSelectionScreen: React.FC = () => {
+export const ServiceSelectionScreen: React.FC = (props: any) => {
+  const route = props.route || { params: { userId: undefined } };
+  const paramUserId = route.params?.userId;
   const navigation = useNavigation<ServiceSelectionScreenNavigationProp>();
-  const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedServices, setSelectedServices] = useState<Set<string>>(
+    new Set()
+  );
+  const [searchQuery, setSearchQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(Object.keys(SERVICIOS))
   );
@@ -35,16 +39,36 @@ export const ServiceSelectionScreen: React.FC = () => {
   // Verificar sesión al montar el componente
   // Durante el registro, el usuario puede no estar en la tabla users aún, así que solo verificamos la sesión de Auth
   React.useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        console.warn('Advertencia: No hay sesión activa en ServiceSelection:', sessionError);
-        // No mostrar error al usuario, solo log
-      } else {
-        console.log('Sesión verificada en ServiceSelection:', session.user.id);
+    const checkAndRestoreSession = async () => {
+      console.log("=== Verificando sesión en ServiceSelectionScreen ===");
+      try {
+        // Intentar obtener la sesión actual
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+          console.warn("No hay sesión activa, intentando restaurar...");
+          // Intentar usar getCurrentUserId que restaurará la sesión
+          const userId = await getCurrentUserId();
+          if (userId) {
+            console.log("Sesión restaurada exitosamente:", userId);
+          } else {
+            console.warn("No se pudo restaurar la sesión desde AsyncStorage");
+          }
+        } else {
+          console.log(
+            "Sesión verificada en ServiceSelection:",
+            session.user.id
+          );
+        }
+      } catch (error) {
+        console.error("Error al verificar/restaurar sesión:", error);
       }
     };
-    checkSession();
+
+    checkAndRestoreSession();
   }, []);
 
   const toggleCategory = (category: string) => {
@@ -93,80 +117,63 @@ export const ServiceSelectionScreen: React.FC = () => {
 
   const handleSave = async () => {
     if (selectedServices.size === 0) {
-      Alert.alert('Error', 'Debes seleccionar al menos un servicio');
+      Alert.alert("Error", "Debes seleccionar al menos un servicio");
       return;
     }
 
     setLoading(true);
     try {
-      // Obtener el userId de la sesión de Supabase Auth
-      // Durante el registro, la sesión debería estar establecida después de signUp
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      let userId: string | null = null;
+      // Usar userId del parámetro de navegación, con fallback a getCurrentUserId
+      const finalUserId = paramUserId || (await getCurrentUserId());
 
-      if (sessionError) {
-        console.error('Error al obtener sesión:', sessionError);
-        // Si hay error al obtener sesión, intentar obtener directamente de Auth
-        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-        if (authError || !authUser) {
-          Alert.alert('Error', 'No se pudo obtener la información del usuario. Por favor, intenta iniciar sesión nuevamente.');
-          setLoading(false);
-          return;
-        }
-        userId = authUser.id;
-        console.log('UserId obtenido de getUser (fallback):', userId);
-      } else if (session?.user?.id) {
-        userId = session.user.id;
-        console.log('UserId obtenido de la sesión:', userId);
-      } else {
-        // Si no hay sesión, intentar obtenerla directamente de Auth
-        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-        if (authError || !authUser) {
-          Alert.alert('Error', 'No se pudo obtener la información del usuario. Por favor, intenta iniciar sesión nuevamente.');
-          setLoading(false);
-          return;
-        }
-        userId = authUser.id;
-        console.log('UserId obtenido de getUser:', userId);
-      }
-
-      if (!userId) {
-        Alert.alert('Error', 'No se pudo obtener el ID del usuario');
+      if (!finalUserId) {
+        console.error(
+          "No se pudo obtener el userId después de varios intentos"
+        );
+        Alert.alert(
+          "Error",
+          "No se pudo obtener la información del usuario. Por favor, intenta iniciar sesión nuevamente."
+        );
         setLoading(false);
         return;
       }
 
+      console.log("UserId obtenido:", finalUserId);
+
       const servicesToSave: Array<{ nombre: string; categoria: string }> = [];
 
       selectedServices.forEach((serviceId) => {
-        const [category, ...serviceNameParts] = serviceId.split('-');
-        const serviceName = serviceNameParts.join('-');
+        const [category, ...serviceNameParts] = serviceId.split("-");
+        const serviceName = serviceNameParts.join("-");
         servicesToSave.push({
           nombre: serviceName,
           categoria: category,
         });
       });
 
-      console.log('Guardando servicios para userId:', userId);
-      const { error } = await saveUserServices(userId, servicesToSave);
+      console.log("Guardando servicios para userId:", finalUserId);
+      const { error } = await saveUserServices(finalUserId, servicesToSave);
 
       if (error) {
-        Alert.alert('Error', error.message || 'No se pudieron guardar los servicios');
+        Alert.alert(
+          "Error",
+          error.message || "No se pudieron guardar los servicios"
+        );
         return;
       }
 
-      Alert.alert('Éxito', 'Servicios guardados correctamente', [
+      Alert.alert("Éxito", "Servicios guardados correctamente", [
         {
-          text: 'OK',
+          text: "OK",
           onPress: () => {
-            // TODO: Navegar a HomeScreen
-            navigation.navigate('Login');
+            // Navegar a HomeScreen después de guardar servicios
+            navigation.navigate("Home");
           },
         },
       ]);
     } catch (error) {
-      Alert.alert('Error', 'Ocurrió un error inesperado');
+      console.error("Error en handleSave:", error);
+      Alert.alert("Error", "Ocurrió un error inesperado");
     } finally {
       setLoading(false);
     }
@@ -177,7 +184,8 @@ export const ServiceSelectionScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.title}>Selecciona tus servicios</Text>
         <Text style={styles.subtitle}>
-          Selecciona todos los servicios que ofreces ({selectedServices.size} seleccionados)
+          Selecciona todos los servicios que ofreces ({selectedServices.size}{" "}
+          seleccionados)
         </Text>
 
         <View style={styles.searchContainer}>
@@ -192,7 +200,10 @@ export const ServiceSelectionScreen: React.FC = () => {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         {Object.keys(filteredServices).map((category) => (
           <View key={category} style={styles.categoryContainer}>
             <TouchableOpacity
@@ -201,7 +212,7 @@ export const ServiceSelectionScreen: React.FC = () => {
             >
               <Text style={styles.categoryTitle}>{category}</Text>
               <Text style={styles.expandIcon}>
-                {expandedCategories.has(category) ? '▼' : '▶'}
+                {expandedCategories.has(category) ? "▼" : "▶"}
               </Text>
             </TouchableOpacity>
 
@@ -249,7 +260,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.text,
     marginBottom: 8,
   },
@@ -259,8 +270,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.backgroundSecondary,
     borderRadius: 8,
     paddingHorizontal: 16,
@@ -287,25 +298,25 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: colors.primaryLight + '20',
+    backgroundColor: colors.primaryLight + "20",
     borderRadius: 8,
     marginBottom: 8,
   },
   categoryTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primaryDark,
     flex: 1,
   },
   expandIcon: {
     fontSize: 14,
     color: colors.primary,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   servicesContainer: {
     paddingLeft: 8,
@@ -317,7 +328,3 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
 });
-
-
-
-

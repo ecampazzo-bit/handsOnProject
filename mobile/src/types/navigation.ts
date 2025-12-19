@@ -1,7 +1,9 @@
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
-  ServiceSelection: undefined;
+  ServiceSelection: {
+    userId: string;
+  };
   Home: undefined;
 };
 
@@ -14,7 +16,7 @@ export type RegisterFormData = {
   password: string;
   confirmPassword: string;
   // Paso 2
-  tipoUsuario: 'cliente' | 'prestador' | 'ambos';
+  tipoUsuario: "cliente" | "prestador" | "ambos";
   // Paso 3 (solo para prestadores)
   direccion?: string;
   latitud?: number;
@@ -27,7 +29,7 @@ export type User = {
   nombre: string;
   apellido: string;
   telefono: string;
-  tipo_usuario: 'cliente' | 'prestador' | 'ambos';
+  tipo_usuario: "cliente" | "prestador" | "ambos";
   direccion?: string;
   latitud?: number;
   longitud?: number;
@@ -42,7 +44,3 @@ export type Service = {
   name: string;
   category: string;
 };
-
-
-
-

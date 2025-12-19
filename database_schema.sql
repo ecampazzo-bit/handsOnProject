@@ -274,6 +274,11 @@ update using (
     );
 create policy "Only authenticated users can insert" on public.users for
 insert with check (auth.role() = 'authenticated');
+-- Política para permitir a usuarios autenticados leer datos públicos de otros usuarios
+create policy "Authenticated users can read public user data" on public.users for
+select using (
+        auth.role() = 'authenticated'
+    );
 -- Crear view pública (sin password)
 drop view if exists public.users_public;
 create view public.users_public as
@@ -336,6 +341,23 @@ create table if not exists public.prestadores (
 -- Trigger para updated_at
 create trigger set_timestamp_prestadores before
 update on public.prestadores for each row execute function public.set_current_timestamp_updated_at();
+-- Habilitar RLS en prestadores
+alter table public.prestadores enable row level security;
+-- Políticas RLS para prestadores
+drop policy if exists "Users can read own prestador" on public.prestadores;
+drop policy if exists "Users can insert own prestador" on public.prestadores;
+drop policy if exists "Users can update own prestador" on public.prestadores;
+drop policy if exists "Authenticated users can read all prestadores" on public.prestadores;
+create policy "Users can read own prestador" on public.prestadores for
+select using (auth.uid() = usuario_id);
+create policy "Users can insert own prestador" on public.prestadores for
+insert with check (auth.uid() = usuario_id);
+create policy "Users can update own prestador" on public.prestadores for
+update using (auth.uid() = usuario_id)
+with check (auth.uid() = usuario_id);
+-- Permitir a usuarios autenticados leer todos los prestadores (para búsqueda)
+create policy "Authenticated users can read all prestadores" on public.prestadores for
+select using (auth.role() = 'authenticated');
 -- ============================================================================
 -- 6. CREAR TABLA PRESTADOR_SERVICIOS
 -- ============================================================================

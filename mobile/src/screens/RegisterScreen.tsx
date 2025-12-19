@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,13 @@ import {
   Alert,
   TouchableOpacity,
   ActivityIndicator,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { useForm, Controller } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as Location from 'expo-location';
-import { signUp, getCurrentUser } from '../services/authService';
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { useForm, Controller } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as Location from "expo-location";
+import { signUp, getCurrentUser } from "../services/authService";
 import {
   registerStep1Schema,
   registerStep2Schema,
@@ -24,13 +24,16 @@ import {
   RegisterStep1FormData,
   RegisterStep2FormData,
   RegisterStep3FormData,
-} from '../utils/validation';
-import { Button } from '../components/Button';
-import { Input } from '../components/Input';
-import { colors } from '../constants/colors';
-import { RootStackParamList, RegisterFormData } from '../types/navigation';
+} from "../utils/validation";
+import { Button } from "../components/Button";
+import { Input } from "../components/Input";
+import { colors } from "../constants/colors";
+import { RootStackParamList, RegisterFormData } from "../types/navigation";
 
-type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Register'>;
+type RegisterScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "Register"
+>;
 
 export const RegisterScreen: React.FC = () => {
   const navigation = useNavigation<RegisterScreenNavigationProp>();
@@ -42,26 +45,26 @@ export const RegisterScreen: React.FC = () => {
   const step1Form = useForm<RegisterStep1FormData>({
     resolver: yupResolver(registerStep1Schema),
     defaultValues: {
-      nombre: '',
-      apellido: '',
-      email: '',
-      telefono: '',
-      password: '',
-      confirmPassword: '',
+      nombre: "",
+      apellido: "",
+      email: "",
+      telefono: "",
+      password: "",
+      confirmPassword: "",
     },
   });
 
   const step2Form = useForm<RegisterStep2FormData>({
     resolver: yupResolver(registerStep2Schema),
     defaultValues: {
-      tipoUsuario: 'cliente' as 'cliente' | 'prestador' | 'ambos',
+      tipoUsuario: "cliente" as "cliente" | "prestador" | "ambos",
     },
   });
 
   const step3Form = useForm<RegisterStep3FormData>({
     resolver: yupResolver(registerStep3Schema),
     defaultValues: {
-      direccion: '',
+      direccion: "",
       latitud: null,
       longitud: null,
     },
@@ -69,17 +72,17 @@ export const RegisterScreen: React.FC = () => {
 
   const handleStep1Next = async (data: RegisterStep1FormData) => {
     try {
-      console.log('Step 1 data recibida:', data);
+      console.log("Step 1 data recibida:", data);
       // Usar la función de actualización de estado para asegurar que tenemos el estado más reciente
       setFormData((prevFormData) => {
         const newFormData = { ...prevFormData, ...data };
-        console.log('Guardando formData:', newFormData);
+        console.log("Guardando formData:", newFormData);
         return newFormData;
       });
       setStep(2);
     } catch (error) {
-      console.error('Error en handleStep1Next:', error);
-      Alert.alert('Error', 'Ocurrió un error al guardar los datos');
+      console.error("Error en handleStep1Next:", error);
+      Alert.alert("Error", "Ocurrió un error al guardar los datos");
     }
   };
 
@@ -87,28 +90,37 @@ export const RegisterScreen: React.FC = () => {
     try {
       // Obtener los datos del paso 1 directamente del formulario
       const step1Data = step1Form.getValues();
-      
+
       // Combinar los datos de ambos pasos
       const updatedData = { ...step1Data, ...data };
-      
-      console.log('Step 2 data:', data);
-      console.log('Step 1 data del formulario:', step1Data);
-      console.log('UpdatedData combinado:', updatedData);
-      
+
+      console.log("Step 2 data:", data);
+      console.log("Step 1 data del formulario:", step1Data);
+      console.log("UpdatedData combinado:", updatedData);
+
       // Actualizar el estado
       setFormData(updatedData);
 
-      if (data.tipoUsuario === 'cliente') {
+      if (data.tipoUsuario === "cliente") {
         // Validar que tenemos todos los datos del paso 1 antes de continuar
-        if (!updatedData.email || !updatedData.password || !updatedData.nombre || !updatedData.apellido || !updatedData.telefono) {
-          console.error('Datos faltantes:', {
+        if (
+          !updatedData.email ||
+          !updatedData.password ||
+          !updatedData.nombre ||
+          !updatedData.apellido ||
+          !updatedData.telefono
+        ) {
+          console.error("Datos faltantes:", {
             email: !!updatedData.email,
             password: !!updatedData.password,
             nombre: !!updatedData.nombre,
             apellido: !!updatedData.apellido,
             telefono: !!updatedData.telefono,
           });
-          Alert.alert('Error', 'Faltan datos del paso anterior. Por favor, vuelve al paso 1.');
+          Alert.alert(
+            "Error",
+            "Faltan datos del paso anterior. Por favor, vuelve al paso 1."
+          );
           setStep(1);
           return;
         }
@@ -119,8 +131,8 @@ export const RegisterScreen: React.FC = () => {
         setStep(3);
       }
     } catch (error) {
-      console.error('Error en handleStep2Next:', error);
-      Alert.alert('Error', 'Ocurrió un error al procesar los datos');
+      console.error("Error en handleStep2Next:", error);
+      Alert.alert("Error", "Ocurrió un error al procesar los datos");
     }
   };
 
@@ -128,20 +140,20 @@ export const RegisterScreen: React.FC = () => {
     setGettingLocation(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      if (status !== "granted") {
         Alert.alert(
-          'Permisos de ubicación',
-          'Necesitamos permisos de ubicación para usar esta función.'
+          "Permisos de ubicación",
+          "Necesitamos permisos de ubicación para usar esta función."
         );
         return;
       }
 
       const location = await Location.getCurrentPositionAsync({});
-      step3Form.setValue('latitud', location.coords.latitude);
-      step3Form.setValue('longitud', location.coords.longitude);
-      Alert.alert('Éxito', 'Ubicación obtenida correctamente');
+      step3Form.setValue("latitud", location.coords.latitude);
+      step3Form.setValue("longitud", location.coords.longitude);
+      Alert.alert("Éxito", "Ubicación obtenida correctamente");
     } catch (error) {
-      Alert.alert('Error', 'No se pudo obtener la ubicación');
+      Alert.alert("Error", "No se pudo obtener la ubicación");
     } finally {
       setGettingLocation(false);
     }
@@ -152,141 +164,174 @@ export const RegisterScreen: React.FC = () => {
       // Obtener los datos de los pasos anteriores directamente de los formularios
       const step1Data = step1Form.getValues();
       const step2Data = step2Form.getValues();
-      
+
       // Combinar todos los datos
       const updatedData = { ...step1Data, ...step2Data, ...data };
-      
-      console.log('Step 3 data:', data);
-      console.log('Datos combinados:', updatedData);
-      
+
+      console.log("Step 3 data:", data);
+      console.log("Datos combinados:", updatedData);
+
       // Actualizar el estado
       setFormData(updatedData);
-      
+
       await handleFinalSubmit(updatedData as RegisterFormData);
     } catch (error) {
-      console.error('Error en handleStep3Next:', error);
-      Alert.alert('Error', 'Ocurrió un error al procesar los datos');
+      console.error("Error en handleStep3Next:", error);
+      Alert.alert("Error", "Ocurrió un error al procesar los datos");
     }
   };
 
   const handleFinalSubmit = async (data: RegisterFormData) => {
     setLoading(true);
     try {
-      console.log('=== handleFinalSubmit INICIO ===');
-      console.log('data recibido:', data);
-      console.log('Tipo de data:', typeof data);
-      console.log('data es null?', data === null);
-      console.log('data es undefined?', data === undefined);
-      console.log('Keys de data:', data ? Object.keys(data) : 'data es null/undefined');
-      
+      console.log("=== handleFinalSubmit INICIO ===");
+      console.log("data recibido:", data);
+      console.log("Tipo de data:", typeof data);
+      console.log("data es null?", data === null);
+      console.log("data es undefined?", data === undefined);
+      console.log(
+        "Keys de data:",
+        data ? Object.keys(data) : "data es null/undefined"
+      );
+
       // Validar que data existe
       if (!data) {
-        console.error('ERROR: data es null o undefined');
-        Alert.alert('Error', 'No se recibieron datos. Por favor, intenta nuevamente.');
+        console.error("ERROR: data es null o undefined");
+        Alert.alert(
+          "Error",
+          "No se recibieron datos. Por favor, intenta nuevamente."
+        );
         setLoading(false);
         return;
       }
-      
+
       // Validar que todos los campos requeridos estén presentes
-      if (!data.email || !data.password || !data.nombre || !data.apellido || !data.telefono || !data.tipoUsuario) {
-        console.error('Datos faltantes en handleFinalSubmit:', {
-          email: data.email || 'FALTANTE',
-          password: data.password ? '***' : 'FALTANTE',
-          nombre: data.nombre || 'FALTANTE',
-          apellido: data.apellido || 'FALTANTE',
-          telefono: data.telefono || 'FALTANTE',
-          tipoUsuario: data.tipoUsuario || 'FALTANTE',
+      if (
+        !data.email ||
+        !data.password ||
+        !data.nombre ||
+        !data.apellido ||
+        !data.telefono ||
+        !data.tipoUsuario
+      ) {
+        console.error("Datos faltantes en handleFinalSubmit:", {
+          email: data.email || "FALTANTE",
+          password: data.password ? "***" : "FALTANTE",
+          nombre: data.nombre || "FALTANTE",
+          apellido: data.apellido || "FALTANTE",
+          telefono: data.telefono || "FALTANTE",
+          tipoUsuario: data.tipoUsuario || "FALTANTE",
           dataCompleto: JSON.stringify(data, null, 2),
         });
-        Alert.alert('Error', 'Faltan datos requeridos. Por favor, completa todos los campos.');
+        Alert.alert(
+          "Error",
+          "Faltan datos requeridos. Por favor, completa todos los campos."
+        );
         setLoading(false);
         return;
       }
 
       // Validar que los datos necesarios estén presentes antes de procesarlos
-      if (!data.nombre || !data.apellido || !data.telefono || !data.tipoUsuario) {
-        console.error('Datos incompletos antes de crear userDataToSend:', {
+      if (
+        !data.nombre ||
+        !data.apellido ||
+        !data.telefono ||
+        !data.tipoUsuario
+      ) {
+        console.error("Datos incompletos antes de crear userDataToSend:", {
           nombre: data.nombre,
           apellido: data.apellido,
           telefono: data.telefono,
           tipoUsuario: data.tipoUsuario,
           dataCompleto: data,
         });
-        Alert.alert('Error', 'Faltan datos requeridos. Por favor, completa todos los campos.');
+        Alert.alert(
+          "Error",
+          "Faltan datos requeridos. Por favor, completa todos los campos."
+        );
         setLoading(false);
         return;
       }
 
       const formattedPhone = formatArgentinePhone(data.telefono);
-      
+
       if (!formattedPhone) {
-        console.error('Error al formatear el teléfono:', data.telefono);
-        Alert.alert('Error', 'El formato del teléfono es inválido');
+        console.error("Error al formatear el teléfono:", data.telefono);
+        Alert.alert("Error", "El formato del teléfono es inválido");
         setLoading(false);
         return;
       }
 
       const userDataToSend = {
-        nombre: (data.nombre || '').trim(),
-        apellido: (data.apellido || '').trim(),
+        nombre: (data.nombre || "").trim(),
+        apellido: (data.apellido || "").trim(),
         telefono: formattedPhone.trim(),
         direccion: data.direccion ? data.direccion.trim() : undefined,
         latitud: data.latitud || undefined,
         longitud: data.longitud || undefined,
         tipoUsuario: data.tipoUsuario,
       };
-      
-      console.log('Datos originales recibidos:', {
+
+      console.log("Datos originales recibidos:", {
         nombre: data.nombre,
         apellido: data.apellido,
         telefono: data.telefono,
         tipoUsuario: data.tipoUsuario,
       });
-      console.log('userDataToSend creado:', userDataToSend);
-      console.log('Email y password:', {
+      console.log("userDataToSend creado:", userDataToSend);
+      console.log("Email y password:", {
         email: data.email,
-        password: data.password ? '***' : 'undefined',
+        password: data.password ? "***" : "undefined",
       });
-      
+
       // Validar que userDataToSend se creó correctamente
-      if (!userDataToSend || !userDataToSend.nombre || !userDataToSend.apellido || !userDataToSend.telefono || !userDataToSend.tipoUsuario) {
-        console.error('userDataToSend inválido:', userDataToSend);
-        Alert.alert('Error', 'Error al preparar los datos. Por favor, intenta nuevamente.');
+      if (
+        !userDataToSend ||
+        !userDataToSend.nombre ||
+        !userDataToSend.apellido ||
+        !userDataToSend.telefono ||
+        !userDataToSend.tipoUsuario
+      ) {
+        console.error("userDataToSend inválido:", userDataToSend);
+        Alert.alert(
+          "Error",
+          "Error al preparar los datos. Por favor, intenta nuevamente."
+        );
         setLoading(false);
         return;
       }
-      
-      console.log('=== ANTES DE LLAMAR A signUp ===');
-      console.log('email:', data.email);
-      console.log('password:', data.password ? '***' : 'undefined');
-      console.log('userDataToSend:', JSON.stringify(userDataToSend, null, 2));
-      console.log('userDataToSend es null?', userDataToSend === null);
-      console.log('userDataToSend es undefined?', userDataToSend === undefined);
-      console.log('Tipo de userDataToSend:', typeof userDataToSend);
-      
+
+      console.log("=== ANTES DE LLAMAR A signUp ===");
+      console.log("email:", data.email);
+      console.log("password:", data.password ? "***" : "undefined");
+      console.log("userDataToSend:", JSON.stringify(userDataToSend, null, 2));
+      console.log("userDataToSend es null?", userDataToSend === null);
+      console.log("userDataToSend es undefined?", userDataToSend === undefined);
+      console.log("Tipo de userDataToSend:", typeof userDataToSend);
+
       // Asegurarse de que todos los parámetros estén definidos antes de llamar
       if (!data.email || !data.password || !userDataToSend) {
-        console.error('ERROR: Parámetros inválidos antes de llamar a signUp:', {
+        console.error("ERROR: Parámetros inválidos antes de llamar a signUp:", {
           email: !!data.email,
           password: !!data.password,
           userDataToSend: !!userDataToSend,
         });
-        Alert.alert('Error', 'Error al preparar los datos para el registro');
+        Alert.alert("Error", "Error al preparar los datos para el registro");
         setLoading(false);
         return;
       }
-      
+
       // Llamar a signUp con los parámetros explícitos
       const emailParam = String(data.email);
       const passwordParam = String(data.password);
       const userDataParam = { ...userDataToSend }; // Crear una copia para asegurar que sea un objeto válido
-      
-      console.log('Llamando a signUp con:', {
+
+      console.log("Llamando a signUp con:", {
         email: emailParam,
-        password: '***',
+        password: "***",
         userData: userDataParam,
       });
-      
+
       // Llamar a signUp con un objeto único para evitar problemas con Metro
       const { user, error } = await signUp({
         email: emailParam,
@@ -295,46 +340,68 @@ export const RegisterScreen: React.FC = () => {
       });
 
       if (error) {
-        console.error('Error completo en registro:', JSON.stringify(error, null, 2));
-        
+        console.error(
+          "Error completo en registro:",
+          JSON.stringify(error, null, 2)
+        );
+
         // Mensaje de error más descriptivo según el tipo de error
-        let errorMessage = error.message || 'No se pudo crear la cuenta';
-        
-        if (error.code === 'NETWORK_ERROR' || error.message?.includes('network') || error.message?.includes('Network')) {
-          errorMessage = 'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.';
-        } else if (error.message?.includes('email')) {
-          errorMessage = 'El email ya está registrado o es inválido. Por favor, verifica tu email.';
+        let errorMessage = error.message || "No se pudo crear la cuenta";
+
+        if (
+          error.code === "NETWORK_ERROR" ||
+          error.message?.includes("network") ||
+          error.message?.includes("Network")
+        ) {
+          errorMessage =
+            "Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.";
+        } else if (error.status === 502 || error.message?.includes("502")) {
+          errorMessage =
+            "El servidor no está disponible temporalmente. Por favor, espera unos segundos e intenta nuevamente.";
+        } else if (error.message?.includes("Supabase no está disponible")) {
+          errorMessage = error.message;
+        } else if (error.message?.includes("email")) {
+          errorMessage =
+            "El email ya está registrado o es inválido. Por favor, verifica tu email.";
         }
-        
-        Alert.alert('Error de registro', errorMessage);
+
+        Alert.alert("Error de registro", errorMessage);
         setLoading(false);
         return;
       }
 
       if (user) {
         // Si el usuario es prestador o ambos, debe seleccionar servicios
-        if (user.tipo_usuario === 'prestador' || user.tipo_usuario === 'ambos') {
-          // Esperar un momento para asegurar que el registro en prestadores esté disponible
-          console.log('Esperando antes de navegar a ServiceSelection...');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          console.log('Navegando a ServiceSelection');
-          navigation.navigate('ServiceSelection');
+        if (
+          user.tipo_usuario === "prestador" ||
+          user.tipo_usuario === "ambos"
+        ) {
+          // Esperar para asegurar que la sesión esté completamente establecida
+          console.log(
+            "Registro exitoso, esperando antes de navegar a ServiceSelection..."
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
+          console.log("Navegando a ServiceSelection");
+          navigation.navigate("ServiceSelection", { userId: user.id });
         } else {
-          Alert.alert('Éxito', 'Cuenta creada exitosamente', [
+          Alert.alert("Éxito", "Cuenta creada exitosamente", [
             {
-              text: 'OK',
+              text: "OK",
               onPress: () => {
-                // TODO: Navegar a HomeScreen
-                navigation.navigate('Login');
+                // Navegar a HomeScreen después de registro exitoso
+                navigation.navigate("Home");
               },
             },
           ]);
         }
       }
     } catch (error) {
-      console.error('Error en handleFinalSubmit:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Ocurrió un error inesperado');
+      console.error("Error en handleFinalSubmit:", error);
+      Alert.alert(
+        "Error",
+        error instanceof Error ? error.message : "Ocurrió un error inesperado"
+      );
     } finally {
       setLoading(false);
     }
@@ -467,35 +534,37 @@ export const RegisterScreen: React.FC = () => {
             <TouchableOpacity
               style={[
                 styles.userTypeCard,
-                value === 'cliente' && styles.userTypeCardSelected,
+                value === "cliente" && styles.userTypeCardSelected,
               ]}
-              onPress={() => onChange('cliente')}
+              onPress={() => onChange("cliente")}
             >
               <Text style={styles.userTypeIcon}>👤</Text>
               <Text
                 style={[
                   styles.userTypeTitle,
-                  value === 'cliente' && styles.userTypeTitleSelected,
+                  value === "cliente" && styles.userTypeTitleSelected,
                 ]}
               >
                 Busco servicios
               </Text>
-              <Text style={styles.userTypeDescription}>Necesito contratar profesionales</Text>
-              {value === 'cliente' && <Text style={styles.checkmark}>✓</Text>}
+              <Text style={styles.userTypeDescription}>
+                Necesito contratar profesionales
+              </Text>
+              {value === "cliente" && <Text style={styles.checkmark}>✓</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
                 styles.userTypeCard,
-                value === 'prestador' && styles.userTypeCardSelected,
+                value === "prestador" && styles.userTypeCardSelected,
               ]}
-              onPress={() => onChange('prestador')}
+              onPress={() => onChange("prestador")}
             >
               <Text style={styles.userTypeIcon}>🔧</Text>
               <Text
                 style={[
                   styles.userTypeTitle,
-                  value === 'prestador' && styles.userTypeTitleSelected,
+                  value === "prestador" && styles.userTypeTitleSelected,
                 ]}
               >
                 Ofrezco servicios
@@ -503,21 +572,21 @@ export const RegisterScreen: React.FC = () => {
               <Text style={styles.userTypeDescription}>
                 Soy un técnico o profesional
               </Text>
-              {value === 'prestador' && <Text style={styles.checkmark}>✓</Text>}
+              {value === "prestador" && <Text style={styles.checkmark}>✓</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
                 styles.userTypeCard,
-                value === 'ambos' && styles.userTypeCardSelected,
+                value === "ambos" && styles.userTypeCardSelected,
               ]}
-              onPress={() => onChange('ambos')}
+              onPress={() => onChange("ambos")}
             >
               <Text style={styles.userTypeIcon}>👥</Text>
               <Text
                 style={[
                   styles.userTypeTitle,
-                  value === 'ambos' && styles.userTypeTitleSelected,
+                  value === "ambos" && styles.userTypeTitleSelected,
                 ]}
               >
                 Ambos
@@ -525,7 +594,7 @@ export const RegisterScreen: React.FC = () => {
               <Text style={styles.userTypeDescription}>
                 Busco servicios y también ofrezco servicios
               </Text>
-              {value === 'ambos' && <Text style={styles.checkmark}>✓</Text>}
+              {value === "ambos" && <Text style={styles.checkmark}>✓</Text>}
             </TouchableOpacity>
           </>
         )}
@@ -539,7 +608,11 @@ export const RegisterScreen: React.FC = () => {
           style={styles.backButton}
         />
         <Button
-          title={step2Form.watch('tipoUsuario') === 'cliente' ? 'Finalizar' : 'Continuar'}
+          title={
+            step2Form.watch("tipoUsuario") === "cliente"
+              ? "Finalizar"
+              : "Continuar"
+          }
           onPress={step2Form.handleSubmit(handleStep2Next)}
           loading={loading}
           style={styles.nextButton}
@@ -560,7 +633,7 @@ export const RegisterScreen: React.FC = () => {
         name="direccion"
         render={({ field: { onChange, value } }) => (
           <Input
-            value={value || ''}
+            value={value || ""}
             onChangeText={onChange}
             placeholder="Dirección"
             error={step3Form.formState.errors.direccion?.message}
@@ -573,8 +646,8 @@ export const RegisterScreen: React.FC = () => {
       <Button
         title={
           gettingLocation
-            ? 'Obteniendo ubicación...'
-            : 'Obtener ubicación actual (GPS)'
+            ? "Obteniendo ubicación..."
+            : "Obtener ubicación actual (GPS)"
         }
         onPress={handleGetLocation}
         variant="secondary"
@@ -583,11 +656,11 @@ export const RegisterScreen: React.FC = () => {
         style={styles.locationButton}
       />
 
-      {step3Form.watch('latitud') && step3Form.watch('longitud') && (
+      {step3Form.watch("latitud") && step3Form.watch("longitud") && (
         <View style={styles.locationInfo}>
           <Text style={styles.locationInfoText}>
-            ✓ Ubicación: {step3Form.watch('latitud')?.toFixed(6)},{' '}
-            {step3Form.watch('longitud')?.toFixed(6)}
+            ✓ Ubicación: {step3Form.watch("latitud")?.toFixed(6)},{" "}
+            {step3Form.watch("longitud")?.toFixed(6)}
           </Text>
         </View>
       )}
@@ -619,7 +692,7 @@ export const RegisterScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -648,20 +721,21 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
+    paddingTop: 60,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
   },
   logo: {
     fontSize: 36,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primary,
     marginBottom: 16,
   },
   progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
   },
   progressDot: {
@@ -686,11 +760,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   form: {
-    width: '100%',
+    width: "100%",
   },
   stepTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.text,
     marginBottom: 8,
   },
@@ -706,12 +780,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 24,
     marginBottom: 16,
-    alignItems: 'center',
-    position: 'relative',
+    alignItems: "center",
+    position: "relative",
   },
   userTypeCardSelected: {
     borderColor: colors.primary,
-    backgroundColor: colors.primaryLight + '10',
+    backgroundColor: colors.primaryLight + "10",
   },
   userTypeIcon: {
     fontSize: 48,
@@ -719,7 +793,7 @@ const styles = StyleSheet.create({
   },
   userTypeTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text,
     marginBottom: 8,
   },
@@ -729,10 +803,10 @@ const styles = StyleSheet.create({
   userTypeDescription: {
     fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   checkmark: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     right: 16,
     fontSize: 24,
@@ -742,7 +816,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   locationInfo: {
-    backgroundColor: colors.success + '20',
+    backgroundColor: colors.success + "20",
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
@@ -755,11 +829,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundSecondary,
     borderWidth: 2,
     borderColor: colors.border,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderRadius: 12,
     padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 24,
   },
   avatarPlaceholderText: {
@@ -771,7 +845,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   buttonRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   backButton: {
@@ -781,7 +855,3 @@ const styles = StyleSheet.create({
     flex: 2,
   },
 });
-
-
-
-

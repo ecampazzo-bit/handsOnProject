@@ -8,5 +8,8 @@
     "android": "cd mobile && npm run android",
     "ios": "cd mobile && npm run ios",
     "web": "cd mobile && npm run web"
+  },
+  "dependencies": {
+    "expo": "^54.0.30"
   }
 }
