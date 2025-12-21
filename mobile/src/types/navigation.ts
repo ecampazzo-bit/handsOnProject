@@ -5,6 +5,19 @@ export type RootStackParamList = {
     userId: string;
   };
   Home: undefined;
+  SolicitarPresupuesto: {
+    servicioId: number;
+    prestadorIds: number[];
+  };
+  SolicitudesPendientes: undefined;
+  ResponderSolicitud: {
+    solicitudId: number;
+    servicioNombre: string;
+  };
+  MisPresupuestos: undefined;
+  MisTrabajos: undefined;
+  MisCotizaciones: undefined;
+  Notificaciones: undefined;
 };
 
 export type RegisterFormData = {

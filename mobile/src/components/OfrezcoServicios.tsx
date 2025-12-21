@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { supabase } from "../services/supabaseClient";
 import { getCurrentUser } from "../services/authService";
@@ -36,6 +37,7 @@ export const OfrezcoServicios: React.FC = () => {
   );
   const [loading, setLoading] = useState(false);
   const [prestadorId, setPrestadorId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     loadData();
@@ -214,9 +216,23 @@ export const OfrezcoServicios: React.FC = () => {
     );
   };
 
-  const serviciosNoOfrecidos = serviciosDisponibles.filter(
-    (servicio) => !misServicios.some((s) => s.servicio_id === servicio.id)
-  );
+  // Filtrar servicios no ofrecidos y aplicar búsqueda
+  const serviciosNoOfrecidos = useMemo(() => {
+    const noOfrecidos = serviciosDisponibles.filter(
+      (servicio) => !misServicios.some((s) => s.servicio_id === servicio.id)
+    );
+
+    if (!searchQuery.trim()) {
+      return noOfrecidos;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    return noOfrecidos.filter(
+      (servicio) =>
+        servicio.nombre.toLowerCase().includes(query) ||
+        servicio.categoria_nombre?.toLowerCase().includes(query)
+    );
+  }, [serviciosDisponibles, misServicios, searchQuery]);
 
   if (loading) {
     return (
@@ -284,10 +300,34 @@ export const OfrezcoServicios: React.FC = () => {
           Selecciona servicios para agregar a tu perfil
         </Text>
 
+        {/* Campo de búsqueda */}
+        <View style={styles.searchContainer}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar servicios por nombre o categoría..."
+            placeholderTextColor={colors.textLight}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => setSearchQuery("")}
+            >
+              <Text style={styles.clearButtonText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {serviciosNoOfrecidos.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
-              Ya ofreces todos los servicios disponibles
+              {searchQuery.trim()
+                ? `No se encontraron servicios que coincidan con "${searchQuery}"`
+                : "Ya ofreces todos los servicios disponibles"}
             </Text>
           </View>
         ) : (
@@ -343,6 +383,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: 16,
+  },
+  searchContainer: {
+    position: "relative",
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+  },
+  searchIcon: {
+    fontSize: 18,
+    paddingLeft: 16,
+    paddingRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingRight: 40,
+    fontSize: 16,
+    color: colors.text,
+  },
+  clearButton: {
+    position: "absolute",
+    right: 12,
+    padding: 4,
+  },
+  clearButtonText: {
+    fontSize: 18,
+    color: colors.textSecondary,
+    fontWeight: "bold",
   },
   servicioCard: {
     flexDirection: "row",

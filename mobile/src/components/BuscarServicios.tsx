@@ -8,9 +8,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import { supabase } from "../services/supabaseClient";
 import { colors } from "../constants/colors";
+import { getCurrentUserId } from "../services/authService";
+import { RootStackParamList } from "../types/navigation";
 
 interface Servicio {
   id: number;
@@ -29,14 +34,65 @@ interface Prestador {
   cantidad_calificaciones: number;
   servicio_nombre: string;
   precio_base: number | null;
+  foto_perfil_url: string | null;
 }
 
+// Componente para mostrar estrellas de calificación
+const StarRating: React.FC<{ rating: number; size?: number }> = ({
+  rating,
+  size = 16,
+}) => {
+  // Asegurar que el rating esté entre 0 y 5
+  const normalizedRating = Math.max(0, Math.min(5, rating));
+  const fullStars = Math.floor(normalizedRating);
+  const hasHalfStar = normalizedRating % 1 >= 0.5;
+  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      {/* Estrellas llenas */}
+      {[...Array(fullStars)].map((_, i) => (
+        <Text
+          key={`full-${i}`}
+          style={{ fontSize: size, color: colors.warning, marginRight: 2 }}
+        >
+          ⭐
+        </Text>
+      ))}
+      {/* Media estrella (si aplica) */}
+      {hasHalfStar && (
+        <Text style={{ fontSize: size, color: colors.warning, marginRight: 2 }}>
+          ⭐
+        </Text>
+      )}
+      {/* Estrellas vacías */}
+      {[...Array(emptyStars)].map((_, i) => (
+        <Text
+          key={`empty-${i}`}
+          style={{ fontSize: size, color: colors.border, marginRight: 2 }}
+        >
+          ☆
+        </Text>
+      ))}
+    </View>
+  );
+};
+
+type BuscarServiciosNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "Home"
+>;
+
 export const BuscarServicios: React.FC = () => {
+  const navigation = useNavigation<BuscarServiciosNavigationProp>();
   const [searchQuery, setSearchQuery] = useState("");
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<number | null>(null);
+  const [selectedPrestadores, setSelectedPrestadores] = useState<Set<number>>(
+    new Set()
+  );
 
   useEffect(() => {
     loadServicios();
@@ -157,7 +213,7 @@ export const BuscarServicios: React.FC = () => {
       const { data: usuarios, error: usuariosError } = await supabase
         .from("users_public")
         .select(
-          "id, nombre, apellido, telefono, calificacion_promedio, cantidad_calificaciones"
+          "id, nombre, apellido, telefono, calificacion_promedio, cantidad_calificaciones, foto_perfil_url"
         )
         .in("id", usuarioIds);
 
@@ -203,6 +259,7 @@ export const BuscarServicios: React.FC = () => {
             cantidad_calificaciones: usuario.cantidad_calificaciones,
             servicio_nombre: servicioData.nombre,
             precio_base: ps?.precio_base || null,
+            foto_perfil_url: usuario.foto_perfil_url,
           };
         })
         .filter((p): p is Prestador => p !== null);
@@ -232,6 +289,50 @@ export const BuscarServicios: React.FC = () => {
   const filteredServicios = servicios.filter((servicio) =>
     servicio.nombre.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const togglePrestadorSelection = (prestadorId: number) => {
+    const newSelected = new Set(selectedPrestadores);
+    if (newSelected.has(prestadorId)) {
+      newSelected.delete(prestadorId);
+    } else {
+      newSelected.add(prestadorId);
+    }
+    setSelectedPrestadores(newSelected);
+  };
+
+  const handleSolicitarPresupuesto = () => {
+    if (selectedPrestadores.size === 0) {
+      Alert.alert(
+        "Selección requerida",
+        "Por favor selecciona al menos un prestador para solicitar presupuesto."
+      );
+      return;
+    }
+
+    if (!selectedServicio) {
+      Alert.alert("Error", "No hay servicio seleccionado");
+      return;
+    }
+
+    // Navegar a la pantalla de solicitar presupuesto
+    navigation.navigate("SolicitarPresupuesto", {
+      servicioId: selectedServicio,
+      prestadorIds: Array.from(selectedPrestadores),
+    });
+  };
+
+  // Limpiar selecciones cuando cambia el servicio o cuando se navega a solicitar presupuesto
+  useEffect(() => {
+    setSelectedPrestadores(new Set());
+  }, [selectedServicio]);
+
+  // Limpiar selecciones cuando se vuelve a esta pantalla (después de solicitar presupuesto)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      setSelectedPrestadores(new Set());
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
@@ -303,44 +404,127 @@ export const BuscarServicios: React.FC = () => {
               </Text>
             </View>
           ) : (
-            <ScrollView
-              style={styles.prestadoresList}
-              contentContainerStyle={styles.prestadoresListContent}
-            >
-              {prestadores.map((prestador) => (
-                <View key={prestador.id} style={styles.prestadorCard}>
-                  <View style={styles.prestadorHeader}>
-                    <View>
-                      <Text style={styles.prestadorNombre}>
-                        {prestador.nombre} {prestador.apellido}
-                      </Text>
-                      <Text style={styles.prestadorServicio}>
-                        {prestador.servicio_nombre}
-                      </Text>
-                    </View>
-                    {prestador.calificacion_promedio && (
-                      <View style={styles.ratingContainer}>
-                        <Text style={styles.rating}>
-                          ⭐ {prestador.calificacion_promedio.toFixed(1)}
-                        </Text>
-                        <Text style={styles.ratingCount}>
-                          ({prestador.cantidad_calificaciones})
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  {prestador.precio_base && (
-                    <Text style={styles.precio}>
-                      Precio desde: ${prestador.precio_base}
+            <>
+              <ScrollView
+                style={styles.prestadoresList}
+                contentContainerStyle={styles.prestadoresListContent}
+              >
+                <View style={styles.prestadoresGrid}>
+                  {prestadores.map((prestador) => {
+                    const isSelected = selectedPrestadores.has(prestador.id);
+                    return (
+                      <TouchableOpacity
+                        key={prestador.id}
+                        style={[
+                          styles.prestadorCard,
+                          isSelected && styles.prestadorCardSelected,
+                        ]}
+                        onPress={() => togglePrestadorSelection(prestador.id)}
+                        activeOpacity={0.7}
+                      >
+                        {/* Checkbox en esquina inferior derecha */}
+                        <View
+                          style={[
+                            styles.checkbox,
+                            styles.checkboxAbsolute,
+                            isSelected && styles.checkboxSelected,
+                          ]}
+                        >
+                          {isSelected && (
+                            <Text style={styles.checkboxCheck}>✓</Text>
+                          )}
+                        </View>
+
+                        <View style={styles.prestadorContent}>
+                          {/* Foto de perfil */}
+                          <View style={styles.prestadorLeft}>
+                            {prestador.foto_perfil_url ? (
+                              <Image
+                                source={{ uri: prestador.foto_perfil_url }}
+                                style={styles.fotoPerfil}
+                              />
+                            ) : (
+                              <View
+                                style={[
+                                  styles.fotoPerfil,
+                                  styles.fotoPerfilPlaceholder,
+                                ]}
+                              >
+                                <Text style={styles.fotoPerfilText}>
+                                  {prestador.nombre.charAt(0)}
+                                  {prestador.apellido.charAt(0)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+
+                          {/* Información del prestador */}
+                          <View style={styles.prestadorInfo}>
+                            <Text
+                              style={styles.prestadorNombre}
+                              numberOfLines={2}
+                            >
+                              {prestador.nombre} {prestador.apellido}
+                            </Text>
+                            <Text
+                              style={styles.prestadorServicio}
+                              numberOfLines={1}
+                            >
+                              {prestador.servicio_nombre}
+                            </Text>
+
+                            {/* Calificación */}
+                            <View style={styles.ratingSection}>
+                              {prestador.calificacion_promedio !== null &&
+                              prestador.calificacion_promedio > 0 ? (
+                                <>
+                                  <StarRating
+                                    rating={prestador.calificacion_promedio}
+                                    size={12}
+                                  />
+                                  <Text style={styles.ratingNumber}>
+                                    {prestador.calificacion_promedio.toFixed(1)}
+                                  </Text>
+                                  {prestador.cantidad_calificaciones > 0 && (
+                                    <Text style={styles.ratingCount}>
+                                      ({prestador.cantidad_calificaciones})
+                                    </Text>
+                                  )}
+                                </>
+                              ) : (
+                                <Text style={styles.noRatingText}>
+                                  Sin calificaciones
+                                </Text>
+                              )}
+                            </View>
+
+                            {prestador.precio_base && (
+                              <Text style={styles.precio} numberOfLines={1}>
+                                ${prestador.precio_base}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+
+              {/* Botón de solicitar presupuesto */}
+              {selectedPrestadores.size > 0 && (
+                <View style={styles.bottomButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.solicitarButton}
+                    onPress={handleSolicitarPresupuesto}
+                  >
+                    <Text style={styles.solicitarButtonText}>
+                      Solicitar presupuesto ({selectedPrestadores.size})
                     </Text>
-                  )}
-                  <Text style={styles.telefono}>📞 {prestador.telefono}</Text>
-                  <TouchableOpacity style={styles.contactButton}>
-                    <Text style={styles.contactButtonText}>Contactar</Text>
                   </TouchableOpacity>
                 </View>
-              ))}
-            </ScrollView>
+              )}
+            </>
           )}
         </View>
       )}
@@ -436,61 +620,131 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
+  prestadoresGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
   prestadorCard: {
     backgroundColor: colors.white,
-    padding: 16,
+    padding: 12,
     marginBottom: 12,
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.border,
+    width: "48%", // Dos columnas con espacio entre ellas
+    position: "relative", // Para posicionar el checkbox absolutamente
   },
-  prestadorHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
+  prestadorCardSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight + "10",
+  },
+  prestadorContent: {
+    alignItems: "center",
+  },
+  prestadorLeft: {
+    alignItems: "center",
+  },
+  fotoPerfil: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginBottom: 8,
+  },
+  fotoPerfilPlaceholder: {
+    backgroundColor: colors.primaryLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fotoPerfilText: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxAbsolute: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    zIndex: 10,
+  },
+  checkboxSelected: {
+    backgroundColor: colors.primary,
+  },
+  checkboxCheck: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  prestadorInfo: {
+    width: "100%",
+    alignItems: "center",
   },
   prestadorNombre: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "bold",
     color: colors.text,
     marginBottom: 4,
+    textAlign: "center",
   },
   prestadorServicio: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  ratingContainer: {
-    alignItems: "flex-end",
-  },
-  rating: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.warning,
-  },
-  ratingCount: {
     fontSize: 12,
     color: colors.textSecondary,
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  ratingSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  ratingNumber: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.text,
+    marginLeft: 4,
+  },
+  ratingCount: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginLeft: 2,
+  },
+  noRatingText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: "italic",
   },
   precio: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "600",
     color: colors.primary,
-    marginBottom: 8,
+    marginTop: 4,
+    textAlign: "center",
   },
-  telefono: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 12,
+  bottomButtonContainer: {
+    padding: 16,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  contactButton: {
+  solicitarButton: {
     backgroundColor: colors.primary,
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 8,
     alignItems: "center",
   },
-  contactButtonText: {
+  solicitarButtonText: {
     color: colors.white,
     fontSize: 16,
     fontWeight: "600",
