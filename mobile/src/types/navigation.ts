@@ -14,7 +14,12 @@ export type RootStackParamList = {
     solicitudId: number;
     servicioNombre: string;
   };
-  MisPresupuestos: undefined;
+  MisPresupuestos:
+    | {
+        solicitudId?: number;
+        tab?: "pendientes" | "aceptadas" | "rechazadas";
+      }
+    | undefined;
   MisTrabajos: undefined;
   MisCotizaciones: undefined;
   Notificaciones: undefined;

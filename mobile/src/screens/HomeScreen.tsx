@@ -60,10 +60,26 @@ export const HomeScreen: React.FC = () => {
       }
 
       // Tipos de notificaciones según el tipo de usuario
-      const tiposNotificacion =
-        currentUser.tipo_usuario === "cliente"
-          ? ["nueva_cotizacion", "sistema"]
-          : ["nueva_solicitud", "trabajo_aceptado", "sistema", "calificacion"];
+      let tiposNotificacion: string[];
+      if (currentUser.tipo_usuario === "cliente") {
+        tiposNotificacion = ["nueva_cotizacion", "sistema"];
+      } else if (currentUser.tipo_usuario === "prestador") {
+        tiposNotificacion = [
+          "nueva_solicitud",
+          "trabajo_aceptado",
+          "sistema",
+          "calificacion",
+        ];
+      } else {
+        // Usuario tipo "ambos" - debe recibir ambos tipos de notificaciones
+        tiposNotificacion = [
+          "nueva_cotizacion",
+          "nueva_solicitud",
+          "trabajo_aceptado",
+          "sistema",
+          "calificacion",
+        ];
+      }
 
       console.log(
         `loadNotificationCount: Buscando notificaciones para usuario ${userId} (tipo: ${currentUser.tipo_usuario})`
@@ -201,14 +217,20 @@ export const HomeScreen: React.FC = () => {
             >
               <Text style={styles.notificationIcon}>💼</Text>
             </TouchableOpacity>
-            {(isPrestador || isAmbos) && (
-              <TouchableOpacity
-                style={styles.notificationButton}
-                onPress={() => navigation.navigate("MisCotizaciones")}
-              >
-                <Text style={styles.notificationIcon}>💰</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => {
+                // Si es cliente o ambos, navegar a MisPresupuestos
+                // Si es solo prestador, navegar a MisCotizaciones
+                if (isCliente || isAmbos) {
+                  navigation.navigate("MisPresupuestos");
+                } else if (isPrestador) {
+                  navigation.navigate("MisCotizaciones");
+                }
+              }}
+            >
+              <Text style={styles.notificationIcon}>💰</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.notificationButton}
               onPress={() => {
@@ -228,9 +250,7 @@ export const HomeScreen: React.FC = () => {
               onPress={handleLogout}
               style={styles.logoutButton}
             >
-              <Text style={styles.logoutText} numberOfLines={1}>
-                Salir
-              </Text>
+              <Text style={styles.logoutIcon}>⬅️</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -239,31 +259,37 @@ export const HomeScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Tabs para todos los usuarios */}
-      <View style={styles.tabsContainer}>
+      {/* Botones de navegación para todos los usuarios */}
+      <View style={styles.buttonsContainer}>
         {isCliente && (
           <>
             <TouchableOpacity
-              style={[styles.tab, activeTab === "buscar" && styles.tabActive]}
+              style={[
+                styles.navButton,
+                activeTab === "buscar" && styles.navButtonActive,
+              ]}
               onPress={() => setActiveTab("buscar")}
             >
               <Text
                 style={[
-                  styles.tabText,
-                  activeTab === "buscar" && styles.tabTextActive,
+                  styles.navButtonText,
+                  activeTab === "buscar" && styles.navButtonTextActive,
                 ]}
               >
                 Busco Servicios
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tab, activeTab === "gestion" && styles.tabActive]}
+              style={[
+                styles.navButton,
+                activeTab === "gestion" && styles.navButtonActive,
+              ]}
               onPress={() => setActiveTab("gestion")}
             >
               <Text
                 style={[
-                  styles.tabText,
-                  activeTab === "gestion" && styles.tabTextActive,
+                  styles.navButtonText,
+                  activeTab === "gestion" && styles.navButtonTextActive,
                 ]}
               >
                 Mi Perfil
@@ -275,13 +301,16 @@ export const HomeScreen: React.FC = () => {
           <>
             {isAmbos && (
               <TouchableOpacity
-                style={[styles.tab, activeTab === "buscar" && styles.tabActive]}
+                style={[
+                  styles.navButton,
+                  activeTab === "buscar" && styles.navButtonActive,
+                ]}
                 onPress={() => setActiveTab("buscar")}
               >
                 <Text
                   style={[
-                    styles.tabText,
-                    activeTab === "buscar" && styles.tabTextActive,
+                    styles.navButtonText,
+                    activeTab === "buscar" && styles.navButtonTextActive,
                   ]}
                 >
                   Busco Servicios
@@ -289,26 +318,32 @@ export const HomeScreen: React.FC = () => {
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={[styles.tab, activeTab === "ofrecer" && styles.tabActive]}
+              style={[
+                styles.navButton,
+                activeTab === "ofrecer" && styles.navButtonActive,
+              ]}
               onPress={() => setActiveTab("ofrecer")}
             >
               <Text
                 style={[
-                  styles.tabText,
-                  activeTab === "ofrecer" && styles.tabTextActive,
+                  styles.navButtonText,
+                  activeTab === "ofrecer" && styles.navButtonTextActive,
                 ]}
               >
                 Ofrezco Servicios
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tab, activeTab === "gestion" && styles.tabActive]}
+              style={[
+                styles.navButton,
+                activeTab === "gestion" && styles.navButtonActive,
+              ]}
               onPress={() => setActiveTab("gestion")}
             >
               <Text
                 style={[
-                  styles.tabText,
-                  activeTab === "gestion" && styles.tabTextActive,
+                  styles.navButtonText,
+                  activeTab === "gestion" && styles.navButtonTextActive,
                 ]}
               >
                 Gestión de Cuenta
@@ -323,14 +358,28 @@ export const HomeScreen: React.FC = () => {
         {isCliente && (
           <>
             {activeTab === "buscar" && <BuscarServicios />}
-            {activeTab === "gestion" && <GestionCuenta />}
+            {activeTab === "gestion" && (
+              <GestionCuenta
+                onConvertirseEnPrestador={() => {
+                  // Cambiar al tab "ofrecer" después de convertirse en prestador
+                  setActiveTab("ofrecer");
+                }}
+              />
+            )}
           </>
         )}
 
         {isPrestador && (
           <>
             {activeTab === "ofrecer" && <OfrezcoServicios />}
-            {activeTab === "gestion" && <GestionCuenta />}
+            {activeTab === "gestion" && (
+              <GestionCuenta
+                onConvertirseEnPrestador={() => {
+                  // Cambiar al tab "buscar" después de convertirse también en cliente
+                  setActiveTab("buscar");
+                }}
+              />
+            )}
           </>
         )}
 
@@ -338,7 +387,14 @@ export const HomeScreen: React.FC = () => {
           <>
             {activeTab === "buscar" && <BuscarServicios />}
             {activeTab === "ofrecer" && <OfrezcoServicios />}
-            {activeTab === "gestion" && <GestionCuenta />}
+            {activeTab === "gestion" && (
+              <GestionCuenta
+                onConvertirseEnPrestador={() => {
+                  // Cambiar al tab "ofrecer" después de convertirse en prestador
+                  setActiveTab("ofrecer");
+                }}
+              />
+            )}
           </>
         )}
       </View>
@@ -358,7 +414,7 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
   header: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryLight,
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -407,48 +463,59 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   logoutButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: colors.white,
-    borderRadius: 8,
+    padding: 6,
     flexShrink: 0,
   },
-  logoutText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "600",
+  logoutIcon: {
+    fontSize: 20,
   },
   welcomeText: {
     color: colors.white,
     fontSize: 18,
     fontWeight: "600",
   },
-  tabsContainer: {
+  buttonsContainer: {
     flexDirection: "row",
     backgroundColor: colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingHorizontal: 5,
   },
-  tab: {
+  navButton: {
     flex: 1,
-    paddingVertical: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 8,
     alignItems: "center",
-    borderBottomWidth: 3,
-    borderBottomColor: "transparent",
-    minWidth: 100,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    minHeight: 44,
   },
-  tabActive: {
-    borderBottomColor: colors.primary,
+  navButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  tabText: {
+  navButtonText: {
     fontSize: 14,
     color: colors.textSecondary,
-    fontWeight: "500",
-  },
-  tabTextActive: {
-    color: colors.primary,
     fontWeight: "600",
+    textAlign: "center",
+  },
+  navButtonTextActive: {
+    color: colors.white,
+    fontWeight: "700",
   },
   content: {
     flex: 1,

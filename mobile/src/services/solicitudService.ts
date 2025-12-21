@@ -216,6 +216,34 @@ export const createSolicitud = async (
 
     const servicioNombre = servicioData?.nombre || "el servicio";
 
+    // Obtener información del cliente (nombre y calificación)
+    const { data: clienteData, error: clienteError } = await supabase
+      .from("users")
+      .select(
+        "nombre, apellido, calificacion_promedio, cantidad_calificaciones"
+      )
+      .eq("id", clienteId)
+      .single();
+
+    const clienteNombre = clienteData
+      ? `${clienteData.nombre} ${clienteData.apellido}`
+      : "Un cliente";
+    const clienteCalificacion = clienteData?.calificacion_promedio || null;
+    const cantidadCalificaciones = clienteData?.cantidad_calificaciones || 0;
+
+    // Formatear la calificación para mostrar en la notificación
+    let calificacionTexto = "";
+    if (clienteCalificacion !== null && cantidadCalificaciones > 0) {
+      const estrellas = "⭐".repeat(Math.round(clienteCalificacion));
+      calificacionTexto = ` (${clienteCalificacion.toFixed(
+        1
+      )} ${estrellas} - ${cantidadCalificaciones} ${
+        cantidadCalificaciones === 1 ? "calificación" : "calificaciones"
+      })`;
+    } else {
+      calificacionTexto = " (Sin calificaciones aún)";
+    }
+
     // Obtener los usuario_ids de los prestadores seleccionados
     const { data: prestadoresData, error: prestadoresError } = await supabase
       .from("prestadores")
@@ -263,7 +291,7 @@ export const createSolicitud = async (
       usuario_id: prestador.usuario_id,
       tipo: "nueva_solicitud" as const,
       titulo: "Nueva solicitud de presupuesto",
-      contenido: `Un cliente solicita un presupuesto para ${servicioNombre}.`,
+      contenido: `${clienteNombre}${calificacionTexto} solicita un presupuesto para ${servicioNombre}.`,
       referencia_id: Number(solicitudId), // Asegurar que sea número
       referencia_tipo: "solicitud_servicio",
       leida: false,

@@ -178,8 +178,14 @@ export const MisTrabajosScreen: React.FC = () => {
       const formatted: Trabajo[] = (data || []).map((t: any) => {
         // Determinar el rol del usuario en este trabajo específico
         const esClienteEnEsteTrabajo = t.cliente_id === userId;
-        const esPrestadorEnEsteTrabajo =
-          prestadorId && t.prestador_id === prestadorId;
+        // Para determinar si es prestador, necesitamos verificar tanto el prestadorId como el usuario_id del prestador
+        let esPrestadorEnEsteTrabajo = false;
+        if (prestadorId && t.prestador_id === prestadorId) {
+          esPrestadorEnEsteTrabajo = true;
+        } else if (t.prestador?.users_public?.id === userId) {
+          // Si no tenemos prestadorId pero el usuario_id del prestador coincide, también es prestador
+          esPrestadorEnEsteTrabajo = true;
+        }
 
         // Determinar el otro usuario según el rol en este trabajo
         const otroUsuario = esClienteEnEsteTrabajo
@@ -230,6 +236,20 @@ export const MisTrabajosScreen: React.FC = () => {
       });
 
       setTrabajos(formatted);
+
+      // Log para debugging
+      console.log("📊 Trabajos cargados:", formatted.length);
+      console.log("📊 Tipo de usuario:", userData?.tipo_usuario);
+      console.log("📊 ActiveRoleTab:", activeRoleTab);
+      console.log("📊 Puede ser prestador y cliente:", puedeSerAmbos);
+      formatted.forEach((t, idx) => {
+        console.log(`Trabajo ${idx + 1}:`, {
+          id: t.id,
+          es_cliente: t.es_cliente,
+          es_prestador: t.es_prestador,
+          estado: t.estado,
+        });
+      });
     } catch (error) {
       console.error("Error al cargar trabajos:", error);
       Alert.alert("Error", "No se pudieron cargar los trabajos");
@@ -498,11 +518,35 @@ export const MisTrabajosScreen: React.FC = () => {
   const trabajosFiltrados = trabajos.filter((trabajo) => {
     // Primero filtrar por rol (prestador o cliente)
     if (puedeSerPrestadorYCliente && activeRoleTab) {
+      // Si el usuario puede ser ambos, filtrar por el tab de rol activo
       if (activeRoleTab === "prestador" && !trabajo.es_prestador) {
         return false;
       }
       if (activeRoleTab === "cliente" && !trabajo.es_cliente) {
         return false;
+      }
+    } else {
+      // Si el usuario solo puede ser cliente o prestador, verificar el rol correcto
+      // Para usuarios tipo "cliente", solo mostrar trabajos donde es cliente
+      if (user?.tipo_usuario === "cliente") {
+        if (!trabajo.es_cliente) {
+          return false;
+        }
+      }
+      // Para usuarios tipo "prestador", solo mostrar trabajos donde es prestador
+      else if (user?.tipo_usuario === "prestador") {
+        if (!trabajo.es_prestador) {
+          return false;
+        }
+      }
+      // Si activeRoleTab está definido aunque no sea "ambos", usarlo
+      else if (activeRoleTab) {
+        if (activeRoleTab === "prestador" && !trabajo.es_prestador) {
+          return false;
+        }
+        if (activeRoleTab === "cliente" && !trabajo.es_cliente) {
+          return false;
+        }
       }
     }
 
@@ -514,6 +558,16 @@ export const MisTrabajosScreen: React.FC = () => {
       // Trabajos completados
       return trabajo.estado === "completado";
     }
+  });
+
+  // Log para debugging del filtrado
+  console.log("🔍 Trabajos filtrados:", {
+    total: trabajos.length,
+    filtrados: trabajosFiltrados.length,
+    tipo_usuario: user?.tipo_usuario,
+    puedeSerPrestadorYCliente,
+    activeRoleTab,
+    activeTab,
   });
 
   if (loading) {
@@ -627,17 +681,28 @@ export const MisTrabajosScreen: React.FC = () => {
         {trabajosFiltrados.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
-              {puedeSerPrestadorYCliente && activeRoleTab
-                ? activeRoleTab === "prestador"
-                  ? activeTab === "en_curso"
-                    ? "No tienes trabajos en curso como prestador."
-                    : "No tienes trabajos terminados como prestador."
-                  : activeTab === "en_curso"
-                  ? "No tienes trabajos en curso como cliente."
-                  : "No tienes trabajos terminados como cliente."
-                : activeTab === "en_curso"
-                ? "No tienes trabajos en curso."
-                : "No tienes trabajos terminados."}
+              {(() => {
+                // Determinar el mensaje según el contexto
+                if (puedeSerPrestadorYCliente && activeRoleTab) {
+                  if (activeRoleTab === "prestador") {
+                    return activeTab === "en_curso"
+                      ? "No tienes trabajos en curso como prestador."
+                      : "No tienes trabajos terminados como prestador.";
+                  } else {
+                    return activeTab === "en_curso"
+                      ? "No tienes trabajos solicitados en curso. Acepta una cotización en 'Mis Presupuestos' para comenzar un trabajo."
+                      : "No tienes trabajos solicitados terminados.";
+                  }
+                } else if (user?.tipo_usuario === "cliente") {
+                  return activeTab === "en_curso"
+                    ? "No tienes trabajos solicitados en curso. Acepta una cotización en 'Mis Presupuestos' para comenzar un trabajo."
+                    : "No tienes trabajos solicitados terminados.";
+                } else {
+                  return activeTab === "en_curso"
+                    ? "No tienes trabajos en curso."
+                    : "No tienes trabajos terminados.";
+                }
+              })()}
             </Text>
           </View>
         ) : (

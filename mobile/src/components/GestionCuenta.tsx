@@ -37,7 +37,13 @@ interface PrestadorData {
   acepta_tarjeta: boolean;
 }
 
-export const GestionCuenta: React.FC = () => {
+interface GestionCuentaProps {
+  onConvertirseEnPrestador?: () => void;
+}
+
+export const GestionCuenta: React.FC<GestionCuentaProps> = ({
+  onConvertirseEnPrestador,
+}) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -196,6 +202,149 @@ export const GestionCuenta: React.FC = () => {
     }
   };
 
+  const handleConvertirseEnCliente = async () => {
+    Alert.alert(
+      "Convertirse en Cliente",
+      "¿Deseas también poder buscar servicios como cliente? Esto te permitirá solicitar presupuestos a otros prestadores.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sí, convertirme",
+          onPress: async () => {
+            setSaving(true);
+            try {
+              const userId = await getCurrentUserId();
+              if (!userId) {
+                Alert.alert("Error", "No se pudo obtener el ID del usuario");
+                return;
+              }
+
+              // Actualizar tipo_usuario de "prestador" a "ambos"
+              const { error: updateError } = await supabase
+                .from("users")
+                .update({ tipo_usuario: "ambos" })
+                .eq("id", userId);
+
+              if (updateError) {
+                console.error("Error al actualizar tipo_usuario:", updateError);
+                Alert.alert(
+                  "Error",
+                  "No se pudo actualizar el tipo de usuario"
+                );
+                return;
+              }
+
+              Alert.alert(
+                "¡Éxito!",
+                "Ahora también puedes buscar servicios como cliente. Puedes solicitar presupuestos a otros prestadores.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      // Recargar datos para reflejar los cambios
+                      loadUserData();
+                      // Llamar al callback para cambiar el tab en HomeScreen si existe
+                      if (onConvertirseEnPrestador) {
+                        // Este callback también funciona para cambiar a cliente
+                        onConvertirseEnPrestador();
+                      }
+                    },
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error("Error inesperado:", error);
+              Alert.alert("Error", "Ocurrió un error inesperado");
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleConvertirseEnPrestador = async () => {
+    Alert.alert(
+      "Convertirse en Prestador",
+      "¿Deseas convertirte en prestador de servicios? Esto te permitirá ofrecer servicios y recibir solicitudes de presupuesto.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sí, convertirme",
+          onPress: async () => {
+            setSaving(true);
+            try {
+              const userId = await getCurrentUserId();
+              if (!userId) {
+                Alert.alert("Error", "No se pudo obtener el ID del usuario");
+                return;
+              }
+
+              // 1. Actualizar tipo_usuario de "cliente" a "ambos"
+              const { error: updateError } = await supabase
+                .from("users")
+                .update({ tipo_usuario: "ambos" })
+                .eq("id", userId);
+
+              if (updateError) {
+                console.error("Error al actualizar tipo_usuario:", updateError);
+                Alert.alert(
+                  "Error",
+                  "No se pudo actualizar el tipo de usuario"
+                );
+                return;
+              }
+
+              // 2. Crear registro en prestadores usando RPC
+              const { data: prestadorResult, error: prestadorError } =
+                await supabase.rpc("insert_prestador", {
+                  p_usuario_id: userId,
+                });
+
+              if (prestadorError) {
+                console.error("Error al crear prestador:", prestadorError);
+                // Si falla crear prestador, revertir el cambio de tipo_usuario
+                await supabase
+                  .from("users")
+                  .update({ tipo_usuario: "cliente" })
+                  .eq("id", userId);
+                Alert.alert(
+                  "Error",
+                  "No se pudo crear el perfil de prestador. Por favor, intenta nuevamente."
+                );
+                return;
+              }
+
+              Alert.alert(
+                "¡Éxito!",
+                "Ahora eres prestador de servicios. Debes agregar los servicios que ofreces para que los clientes puedan encontrarte.",
+                [
+                  {
+                    text: "Agregar Servicios",
+                    onPress: () => {
+                      // Recargar datos para reflejar los cambios
+                      loadUserData();
+                      // Llamar al callback para cambiar el tab en HomeScreen
+                      if (onConvertirseEnPrestador) {
+                        onConvertirseEnPrestador();
+                      }
+                    },
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error("Error inesperado:", error);
+              Alert.alert("Error", "Ocurrió un error inesperado");
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSave = async () => {
     if (!prestadorId) {
       Alert.alert("Error", "No se encontró tu perfil de prestador");
@@ -320,7 +469,57 @@ export const GestionCuenta: React.FC = () => {
           <Text style={styles.infoLabel}>Teléfono:</Text>
           <Text style={styles.infoValue}>{userData?.telefono}</Text>
         </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Tipo de Usuario:</Text>
+          <Text style={styles.infoValue}>
+            {userData?.tipo_usuario === "cliente"
+              ? "Cliente"
+              : userData?.tipo_usuario === "prestador"
+              ? "Prestador"
+              : "Cliente y Prestador"}
+          </Text>
+        </View>
       </View>
+
+      {/* Sección para convertir cliente en prestador */}
+      {userData?.tipo_usuario === "cliente" && (
+        <View style={styles.section}>
+          <View style={styles.convertSection}>
+            <Text style={styles.convertTitle}>¿Quieres ofrecer servicios?</Text>
+            <Text style={styles.convertDescription}>
+              Conviértete en prestador de servicios para poder ofrecer tus
+              servicios y recibir solicitudes de presupuesto de clientes.
+            </Text>
+            <Button
+              title="Convertirme en Prestador"
+              onPress={handleConvertirseEnPrestador}
+              loading={saving}
+              style={styles.convertButton}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Sección para convertir prestador en cliente */}
+      {userData?.tipo_usuario === "prestador" && (
+        <View style={styles.section}>
+          <View style={styles.convertSection}>
+            <Text style={styles.convertTitle}>
+              ¿Quieres también buscar servicios?
+            </Text>
+            <Text style={styles.convertDescription}>
+              Conviértete también en cliente para poder buscar servicios y
+              solicitar presupuestos a otros prestadores.
+            </Text>
+            <Button
+              title="Convertirme también en Cliente"
+              onPress={handleConvertirseEnCliente}
+              loading={saving}
+              style={styles.convertButton}
+            />
+          </View>
+        </View>
+      )}
 
       {/* Información de Prestador - Solo para prestadores */}
       {isPrestador && (
@@ -666,5 +865,27 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: 16,
     marginBottom: 32,
+  },
+  convertSection: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  convertTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 8,
+  },
+  convertDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  convertButton: {
+    marginTop: 8,
   },
 });

@@ -57,12 +57,33 @@ export const NotificacionesScreen: React.FC = () => {
       if (!user) return;
 
       const isCliente = user.tipo_usuario === "cliente";
+      const isPrestador = user.tipo_usuario === "prestador";
+      const isAmbos = user.tipo_usuario === "ambos";
       setUserType(user.tipo_usuario);
 
       // Tipos de notificaciones según el tipo de usuario
-      const tiposNotificacion = isCliente
-        ? ["nueva_cotizacion", "sistema"]
-        : ["nueva_solicitud", "trabajo_aceptado", "sistema", "calificacion"];
+      let tiposNotificacion: string[];
+      if (isCliente) {
+        tiposNotificacion = ["nueva_cotizacion", "sistema"];
+      } else if (isPrestador) {
+        tiposNotificacion = [
+          "nueva_solicitud",
+          "trabajo_aceptado",
+          "sistema",
+          "calificacion",
+        ];
+      } else if (isAmbos) {
+        // Usuario tipo "ambos" - debe recibir ambos tipos de notificaciones
+        tiposNotificacion = [
+          "nueva_cotizacion",
+          "nueva_solicitud",
+          "trabajo_aceptado",
+          "sistema",
+          "calificacion",
+        ];
+      } else {
+        tiposNotificacion = ["sistema"];
+      }
 
       // Obtener todas las notificaciones del usuario
       const { data, error } = await supabase
@@ -118,9 +139,22 @@ export const NotificacionesScreen: React.FC = () => {
         }
         break;
       case "nueva_cotizacion":
-        // Solo para clientes: navegar a Mis Presupuestos
-        if (isCliente) {
-          navigation.navigate("MisPresupuestos");
+        // Solo para clientes: navegar a Mis Presupuestos con la solicitud específica
+        if (isCliente || userType === "ambos") {
+          // Si la notificación tiene referencia a una solicitud, navegar directamente a ella
+          if (
+            notificacion.referencia_tipo === "solicitud_servicio" &&
+            notificacion.referencia_id
+          ) {
+            navigation.navigate("MisPresupuestos", {
+              solicitudId: notificacion.referencia_id,
+              tab: "pendientes",
+            });
+          } else {
+            navigation.navigate("MisPresupuestos", {
+              tab: "pendientes",
+            });
+          }
         }
         break;
       case "trabajo_aceptado":

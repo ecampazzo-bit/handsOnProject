@@ -8,8 +8,10 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
+  Platform,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { supabase } from "../services/supabaseClient";
 import { colors } from "../constants/colors";
@@ -20,7 +22,39 @@ import {
   rechazarCotizacion,
 } from "../services/solicitudService";
 
+// Componente para mostrar estrellas de calificación
+const StarRating: React.FC<{ rating: number; size?: number }> = ({
+  rating,
+  size = 14,
+}) => {
+  const normalizedRating = Math.max(0, Math.min(5, rating));
+  const fullStars = Math.floor(normalizedRating);
+  const hasHalfStar = normalizedRating % 1 >= 0.5;
+  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      {[...Array(fullStars)].map((_, i) => (
+        <Text key={`full-${i}`} style={{ fontSize: size }}>
+          ⭐
+        </Text>
+      ))}
+      {hasHalfStar && <Text style={{ fontSize: size }}>⭐</Text>}
+      {[...Array(emptyStars)].map((_, i) => (
+        <Text key={`empty-${i}`} style={{ fontSize: size, opacity: 0.3 }}>
+          ⭐
+        </Text>
+      ))}
+    </View>
+  );
+};
+
 type MisPresupuestosNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "MisPresupuestos"
+>;
+
+type MisPresupuestosRouteProp = RouteProp<
   RootStackParamList,
   "MisPresupuestos"
 >;
@@ -38,6 +72,8 @@ interface Cotizacion {
       apellido: string;
       foto_perfil_url: string | null;
       telefono: string;
+      calificacion_promedio: number | null;
+      cantidad_calificaciones: number;
     };
   };
 }
@@ -53,15 +89,29 @@ interface Solicitud {
 
 export const MisPresupuestosScreen: React.FC = () => {
   const navigation = useNavigation<MisPresupuestosNavigationProp>();
+  const route = useRoute<MisPresupuestosRouteProp>();
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "pendientes" | "aceptadas" | "rechazadas"
-  >("pendientes");
+  >(route.params?.tab || "pendientes");
+  const [highlightedSolicitudId, setHighlightedSolicitudId] = useState<
+    number | null
+  >(route.params?.solicitudId || null);
 
   useEffect(() => {
     loadDatos();
   }, []);
+
+  // Si hay parámetros de navegación, ajustar el tab y resaltar la solicitud
+  useEffect(() => {
+    if (route.params?.tab) {
+      setActiveTab(route.params.tab);
+    }
+    if (route.params?.solicitudId) {
+      setHighlightedSolicitudId(route.params.solicitudId);
+    }
+  }, [route.params]);
 
   const loadDatos = async () => {
     try {
@@ -122,7 +172,7 @@ export const MisPresupuestosScreen: React.FC = () => {
             estado,
             prestadores(
               id,
-              users_public(nombre, apellido, foto_perfil_url, telefono)
+              users_public(nombre, apellido, foto_perfil_url, telefono, calificacion_promedio, cantidad_calificaciones)
             )
           )
         `
@@ -208,9 +258,18 @@ export const MisPresupuestosScreen: React.FC = () => {
 
               Alert.alert(
                 "¡Éxito!",
-                "Presupuesto aceptado. El profesional ha sido notificado."
+                "Presupuesto aceptado. El profesional ha sido notificado.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      // Cambiar a la pestaña "aceptadas" y recargar datos
+                      setActiveTab("aceptadas");
+                      loadDatos();
+                    },
+                  },
+                ]
               );
-              loadDatos();
             } catch (error: any) {
               Alert.alert(
                 "Error",
@@ -224,12 +283,44 @@ export const MisPresupuestosScreen: React.FC = () => {
     );
   };
 
-  const handleContactar = (telefono: string) => {
-    Alert.alert(
-      "Contactar prestador",
-      `El teléfono del prestador es: ${telefono}`
-    );
-    // Aquí podrías usar Linking para abrir WhatsApp o llamar
+  const handleLlamar = async (telefono: string, nombre: string) => {
+    try {
+      const url = `tel:${telefono}`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert(
+          "No se puede llamar",
+          `Por favor llama manualmente a ${nombre}: ${telefono}`
+        );
+      }
+    } catch (error) {
+      Alert.alert("Error", "No se pudo realizar la llamada");
+    }
+  };
+
+  const handleWhatsApp = async (telefono: string, nombre: string) => {
+    try {
+      // Limpiar el número de teléfono (quitar espacios, guiones, etc.)
+      const cleanPhone = telefono.replace(/[^0-9]/g, "");
+      const url = `whatsapp://send?phone=${cleanPhone}`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert(
+          "WhatsApp no disponible",
+          `Por favor instala WhatsApp o usa el número: ${telefono}`
+        );
+      }
+    } catch (error) {
+      Alert.alert("Error", "No se pudo abrir WhatsApp");
+    }
+  };
+
+  const handleVerTrabajo = (solicitudId: number) => {
+    navigation.navigate("MisTrabajos");
   };
 
   if (loading) {
@@ -324,7 +415,14 @@ export const MisPresupuestosScreen: React.FC = () => {
           </Text>
         ) : (
           solicitudesFiltradas.map((solicitud) => (
-            <View key={solicitud.id} style={styles.solicitudCard}>
+            <View
+              key={solicitud.id}
+              style={[
+                styles.solicitudCard,
+                highlightedSolicitudId === solicitud.id &&
+                  styles.solicitudCardHighlighted,
+              ]}
+            >
               <View style={styles.solicitudInfo}>
                 <Text style={styles.servicioNombre}>
                   {solicitud.servicio_nombre}
@@ -356,11 +454,34 @@ export const MisPresupuestosScreen: React.FC = () => {
                           </Text>
                         </View>
                       )}
-                      <View>
+                      <View style={styles.prestadorInfo}>
                         <Text style={styles.prestadorNombre}>
                           {cotiz.prestador.usuario.nombre}{" "}
                           {cotiz.prestador.usuario.apellido}
                         </Text>
+                        {cotiz.prestador.usuario.calificacion_promedio !==
+                          null &&
+                        cotiz.prestador.usuario.cantidad_calificaciones > 0 ? (
+                          <View style={styles.ratingContainer}>
+                            <StarRating
+                              rating={
+                                cotiz.prestador.usuario.calificacion_promedio
+                              }
+                              size={12}
+                            />
+                            <Text style={styles.ratingText}>
+                              {cotiz.prestador.usuario.calificacion_promedio.toFixed(
+                                1
+                              )}{" "}
+                              ({cotiz.prestador.usuario.cantidad_calificaciones}
+                              )
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.noRatingText}>
+                            Sin calificaciones
+                          </Text>
+                        )}
                         <Text style={styles.precioText}>
                           ${cotiz.precio_ofrecido} • {cotiz.tiempo_estimado}hs
                           aprox.
@@ -392,11 +513,40 @@ export const MisPresupuestosScreen: React.FC = () => {
 
                     <View style={styles.actions}>
                       {cotiz.estado === "aceptada" ? (
-                        <View style={styles.estadoAceptadoContainer}>
-                          <Text style={styles.estadoAceptadoText}>
-                            Esta cotización fue aceptada
-                          </Text>
-                        </View>
+                        <>
+                          <TouchableOpacity
+                            style={styles.btnLlamar}
+                            onPress={() =>
+                              handleLlamar(
+                                cotiz.prestador.usuario.telefono,
+                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                              )
+                            }
+                          >
+                            <Text style={styles.btnTextLlamar}>📞 Llamar</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.btnWhatsApp}
+                            onPress={() =>
+                              handleWhatsApp(
+                                cotiz.prestador.usuario.telefono,
+                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                              )
+                            }
+                          >
+                            <Text style={styles.btnTextWhatsApp}>
+                              💬 WhatsApp
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.btnVerTrabajo}
+                            onPress={() => handleVerTrabajo(solicitud.id)}
+                          >
+                            <Text style={styles.btnTextVerTrabajo}>
+                              Ver Trabajo
+                            </Text>
+                          </TouchableOpacity>
+                        </>
                       ) : cotiz.estado === "rechazada" ? (
                         <View style={styles.estadoRechazadoContainer}>
                           <Text style={styles.estadoRechazadoText}>
@@ -405,12 +555,13 @@ export const MisPresupuestosScreen: React.FC = () => {
                         </View>
                       ) : (
                         <>
+                          {/* Botones principales: Desestimar y Aceptar */}
                           <TouchableOpacity
                             style={styles.btnRechazar}
                             onPress={() => handleRechazar(cotiz.id)}
                           >
                             <Text style={styles.btnTextRechazar}>
-                              No interesa
+                              Desestimar
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
@@ -421,13 +572,30 @@ export const MisPresupuestosScreen: React.FC = () => {
                           >
                             <Text style={styles.btnTextAceptar}>Aceptar</Text>
                           </TouchableOpacity>
+                          {/* Botones secundarios: Llamar y WhatsApp */}
                           <TouchableOpacity
-                            style={styles.btnContactar}
+                            style={styles.btnLlamar}
                             onPress={() =>
-                              handleContactar(cotiz.prestador.usuario.telefono)
+                              handleLlamar(
+                                cotiz.prestador.usuario.telefono,
+                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                              )
                             }
                           >
-                            <Text style={styles.btnTextContactar}>📞</Text>
+                            <Text style={styles.btnTextLlamar}>📞 Llamar</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.btnWhatsApp}
+                            onPress={() =>
+                              handleWhatsApp(
+                                cotiz.prestador.usuario.telefono,
+                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                              )
+                            }
+                          >
+                            <Text style={styles.btnTextWhatsApp}>
+                              💬 WhatsApp
+                            </Text>
                           </TouchableOpacity>
                         </>
                       )}
@@ -469,16 +637,16 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 10,
     alignItems: "center",
-    borderBottomWidth: 3,
+    borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
   tabActive: {
     borderBottomColor: colors.primary,
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "500",
     color: colors.textSecondary,
   },
@@ -499,6 +667,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  solicitudCardHighlighted: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight + "10",
   },
   solicitudInfo: {
     flexDirection: "row",
@@ -530,35 +703,115 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   avatarText: { color: colors.white, fontWeight: "bold" },
-  prestadorNombre: { fontWeight: "bold", fontSize: 15 },
-  precioText: { color: colors.success, fontWeight: "600" },
+  prestadorInfo: {
+    flex: 1,
+  },
+  prestadorNombre: { fontWeight: "bold", fontSize: 15, marginBottom: 4 },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginLeft: 4,
+  },
+  noRatingText: {
+    fontSize: 11,
+    color: colors.textLight,
+    fontStyle: "italic",
+    marginBottom: 4,
+  },
+  precioText: { color: colors.success, fontWeight: "600", fontSize: 13 },
   cotizDesc: { fontSize: 14, color: colors.textSecondary, marginBottom: 15 },
-  actions: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
+  actions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
+  },
   btnRechazar: {
-    padding: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: colors.error,
     alignItems: "center",
-    flex: 2,
+    justifyContent: "center",
+    flex: 1,
+    minWidth: "48%",
+    height: 36,
   },
   btnAceptar: {
-    padding: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 6,
     backgroundColor: colors.success,
     alignItems: "center",
-    flex: 2,
+    justifyContent: "center",
+    flex: 1,
+    minWidth: "48%",
+    height: 36,
   },
-  btnContactar: {
-    padding: 10,
-    borderRadius: 6,
+  btnLlamar: {
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 5,
     backgroundColor: colors.primary,
     alignItems: "center",
+    justifyContent: "center",
     flex: 1,
+    minWidth: "30%",
+    height: 32,
   },
-  btnTextRechazar: { color: colors.error, fontWeight: "600" },
-  btnTextAceptar: { color: colors.white, fontWeight: "600" },
-  btnTextContactar: { color: colors.white, fontWeight: "600" },
+  btnWhatsApp: {
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 5,
+    backgroundColor: "#25D366", // Color verde de WhatsApp
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    minWidth: "30%",
+    height: 32,
+  },
+  btnVerTrabajo: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: colors.secondary,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    marginTop: 4,
+  },
+  btnTextRechazar: {
+    color: colors.error,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  btnTextAceptar: {
+    color: colors.white,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  btnTextLlamar: {
+    color: colors.white,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  btnTextWhatsApp: {
+    color: colors.white,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  btnTextVerTrabajo: {
+    color: colors.white,
+    fontWeight: "600",
+    fontSize: 12,
+  },
   estadoBadgeAceptada: {
     backgroundColor: colors.success + "20",
     paddingHorizontal: 12,
