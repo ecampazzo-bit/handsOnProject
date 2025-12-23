@@ -37,6 +37,12 @@ interface Prestador {
   foto_perfil_url: string | null;
 }
 
+interface Categoria {
+  id: number;
+  nombre: string;
+  url: string | null;
+}
+
 // Componente para mostrar estrellas de calificación
 const StarRating: React.FC<{ rating: number; size?: number }> = ({
   rating,
@@ -87,7 +93,11 @@ export const BuscarServicios: React.FC = () => {
   const navigation = useNavigation<BuscarServiciosNavigationProp>();
   const [searchQuery, setSearchQuery] = useState("");
   const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [selectedCategoria, setSelectedCategoria] = useState<number | null>(null);
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
+  const [topPrestadores, setTopPrestadores] = useState<Prestador[]>([]);
+  const [loadingTop, setLoadingTop] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<number | null>(null);
   const [selectedPrestadores, setSelectedPrestadores] = useState<Set<number>>(
@@ -95,7 +105,9 @@ export const BuscarServicios: React.FC = () => {
   );
 
   useEffect(() => {
+    loadCategorias();
     loadServicios();
+    loadTopPrestadores();
   }, []);
 
   useEffect(() => {
@@ -110,6 +122,24 @@ export const BuscarServicios: React.FC = () => {
       setPrestadores([]);
     }
   }, [selectedServicio]);
+
+  const loadCategorias = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("categorias")
+        .select("id, nombre, url")
+        .order("nombre");
+
+      if (error) {
+        console.error("Error al cargar categorías:", error);
+        return;
+      }
+
+      setCategorias(data || []);
+    } catch (error) {
+      console.error("Error inesperado al cargar categorías:", error);
+    }
+  };
 
   const loadServicios = async () => {
     try {
@@ -133,6 +163,101 @@ export const BuscarServicios: React.FC = () => {
       setServicios(serviciosConCategoria);
     } catch (error) {
       console.error("Error inesperado:", error);
+    }
+  };
+
+  const loadTopPrestadores = async () => {
+    setLoadingTop(true);
+    try {
+      console.log("🔍 Cargando top prestadores...");
+      
+      // Obtener prestadores con su información de usuario y calificación
+      // La calificación está en la tabla users, no en prestadores
+      const { data: prestadoresData, error: prestadoresError } = await supabase
+        .from("prestadores")
+        .select(`
+          id,
+          usuario_id,
+          users!inner (
+            nombre,
+            apellido,
+            telefono,
+            foto_perfil_url,
+            calificacion_promedio,
+            cantidad_calificaciones
+          )
+        `)
+        .not("users.calificacion_promedio", "is", null)
+        .gt("users.calificacion_promedio", 0)
+        .not("users.cantidad_calificaciones", "is", null)
+        .gt("users.cantidad_calificaciones", 0);
+
+      console.log("📊 Prestadores con calificación encontrados:", prestadoresData?.length || 0);
+
+      if (prestadoresError) {
+        console.error("❌ Error al cargar top prestadores:", prestadoresError);
+        setTopPrestadores([]);
+        return;
+      }
+
+      if (!prestadoresData || prestadoresData.length === 0) {
+        console.log("⚠️ No hay prestadores con calificaciones aún");
+        setTopPrestadores([]);
+        return;
+      }
+
+      // Ordenar por calificación en JavaScript y tomar los top 5
+      const prestadoresOrdenados = prestadoresData
+        .sort((a: any, b: any) => {
+          // Primero ordenar por calificación promedio (descendente)
+          const diffCalif = (b.users.calificacion_promedio || 0) - (a.users.calificacion_promedio || 0);
+          if (diffCalif !== 0) return diffCalif;
+          // Si tienen la misma calificación, ordenar por cantidad (descendente)
+          return (b.users.cantidad_calificaciones || 0) - (a.users.cantidad_calificaciones || 0);
+        })
+        .slice(0, 5);
+
+      console.log("✅ Top 5 prestadores ordenados:", prestadoresOrdenados);
+
+      // Obtener un servicio principal para cada prestador
+      const prestadorIds = prestadoresOrdenados.map((p: any) => p.id);
+      const { data: serviciosData, error: serviciosError } = await supabase
+        .from("prestador_servicios")
+        .select("prestador_id, precio_base, servicios(nombre)")
+        .in("prestador_id", prestadorIds);
+
+      console.log("🔧 Servicios encontrados:", serviciosData?.length || 0);
+
+      if (serviciosError) {
+        console.error("⚠️ Error al cargar servicios de prestadores:", serviciosError);
+      }
+
+      // Combinar datos
+      const topPrestadoresCompletos = prestadoresOrdenados.map((prestador: any) => {
+        const usuario = prestador.users;
+        const servicioInfo = serviciosData?.find((s: any) => s.prestador_id === prestador.id);
+
+        return {
+          id: prestador.id,
+          usuario_id: prestador.usuario_id,
+          nombre: usuario?.nombre || "Sin nombre",
+          apellido: usuario?.apellido || "",
+          telefono: usuario?.telefono || "",
+          calificacion_promedio: usuario?.calificacion_promedio,
+          cantidad_calificaciones: usuario?.cantidad_calificaciones,
+          servicio_nombre: servicioInfo?.servicios?.nombre || "Varios servicios",
+          precio_base: servicioInfo?.precio_base || null,
+          foto_perfil_url: usuario?.foto_perfil_url || null,
+        };
+      });
+
+      console.log("🎯 Top prestadores completos:", topPrestadoresCompletos);
+      setTopPrestadores(topPrestadoresCompletos);
+      console.log("✅ Estado de topPrestadores actualizado");
+    } catch (error) {
+      console.error("❌ Error inesperado al cargar top prestadores:", error);
+    } finally {
+      setLoadingTop(false);
     }
   };
 
@@ -286,9 +411,11 @@ export const BuscarServicios: React.FC = () => {
     }
   };
 
-  const filteredServicios = servicios.filter((servicio) =>
-    servicio.nombre.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredServicios = servicios.filter((servicio) => {
+    const matchesSearch = servicio.nombre.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategoria = selectedCategoria === null || servicio.categoria_id === selectedCategoria;
+    return matchesSearch && matchesCategoria;
+  });
 
   const togglePrestadorSelection = (prestadorId: number) => {
     const newSelected = new Set(selectedPrestadores);
@@ -324,6 +451,10 @@ export const BuscarServicios: React.FC = () => {
   // Limpiar selecciones cuando cambia el servicio o cuando se navega a solicitar presupuesto
   useEffect(() => {
     setSelectedPrestadores(new Set());
+    // Limpiar categoría seleccionada cuando se selecciona un servicio
+    if (selectedServicio) {
+      setSelectedCategoria(null);
+    }
   }, [selectedServicio]);
 
   // Limpiar selecciones cuando se vuelve a esta pantalla (después de solicitar presupuesto)
@@ -337,10 +468,7 @@ export const BuscarServicios: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>Estoy buscando</Text>
-        <Text style={styles.subtitle}>
-          Encuentra el profesional que necesitas
-        </Text>
+        <Text style={styles.title}>Buscando...</Text>
       </View>
       <View style={styles.searchContainer}>
         <TextInput
@@ -352,39 +480,178 @@ export const BuscarServicios: React.FC = () => {
         />
       </View>
 
-      {!selectedServicio ? (
-        <ScrollView style={styles.serviciosList}>
-          {filteredServicios.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>
-                {searchQuery
-                  ? "No se encontraron servicios"
-                  : "Cargando servicios..."}
+      {/* Carrusel de Categorías */}
+      {categorias.length > 0 && !selectedServicio && (
+        <View style={styles.categoriasCarouselContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoriasCarousel}
+            contentContainerStyle={styles.categoriasCarouselContent}
+          >
+            <TouchableOpacity
+              style={[
+                styles.categoriaCard,
+                selectedCategoria === null && styles.categoriaCardSelected,
+              ]}
+              onPress={() => setSelectedCategoria(null)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.categoriaIcon, selectedCategoria === null && styles.categoriaIconSelected]}>
+                <Text style={styles.categoriaIconText}>📂</Text>
+              </View>
+              <Text style={[styles.categoriaName, selectedCategoria === null && styles.categoriaNameSelected]}>
+                Todas
               </Text>
-            </View>
-          ) : (
-            filteredServicios.map((servicio) => (
+            </TouchableOpacity>
+            {categorias.map((categoria) => (
               <TouchableOpacity
-                key={servicio.id}
-                style={styles.servicioCard}
-                onPress={() => setSelectedServicio(servicio.id)}
+                key={categoria.id}
+                style={[
+                  styles.categoriaCard,
+                  selectedCategoria === categoria.id && styles.categoriaCardSelected,
+                ]}
+                onPress={() => setSelectedCategoria(categoria.id)}
+                activeOpacity={0.7}
               >
-                <View>
-                  <Text style={styles.servicioNombre}>{servicio.nombre}</Text>
-                  <Text style={styles.servicioCategoria}>
-                    {servicio.categoria_nombre}
-                  </Text>
-                </View>
-                <Text style={styles.arrow}>→</Text>
+                {categoria.url ? (
+                  <Image
+                    source={{ uri: categoria.url }}
+                    style={[
+                      styles.categoriaIcon,
+                      styles.categoriaIconImage,
+                      selectedCategoria === categoria.id && styles.categoriaIconSelected,
+                    ]}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.categoriaIcon, selectedCategoria === categoria.id && styles.categoriaIconSelected]}>
+                    <Text style={styles.categoriaIconText}>📦</Text>
+                  </View>
+                )}
+                <Text
+                  style={[
+                    styles.categoriaName,
+                    selectedCategoria === categoria.id && styles.categoriaNameSelected,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {categoria.nombre}
+                </Text>
               </TouchableOpacity>
-            ))
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {!selectedServicio ? (
+        <>
+          <ScrollView style={styles.serviciosList}>
+            {filteredServicios.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  {searchQuery
+                    ? "No se encontraron servicios"
+                    : "Cargando servicios..."}
+                </Text>
+              </View>
+            ) : (
+              filteredServicios.map((servicio) => (
+                <TouchableOpacity
+                  key={servicio.id}
+                  style={styles.servicioCard}
+                  onPress={() => setSelectedServicio(servicio.id)}
+                >
+                  <View>
+                    <Text style={styles.servicioNombre}>{servicio.nombre}</Text>
+                    {selectedCategoria === null && (
+                      <Text style={styles.servicioCategoria}>
+                        {servicio.categoria_nombre}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={styles.arrow}>→</Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+
+          {/* Carrusel de Top Prestadores - Fijo en la parte inferior */}
+          {topPrestadores.length > 0 && (
+            <View style={styles.carouselContainer}>
+              <Text style={styles.carouselTitle}>
+                🌟 Mejores Calificados
+              </Text>
+              {loadingTop ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.carousel}
+                  contentContainerStyle={styles.carouselContent}
+                >
+                  {topPrestadores.map((prestador, index) => (
+                    <TouchableOpacity
+                      key={prestador.id}
+                      style={[
+                        styles.carouselCard,
+                        index === 0 && styles.carouselCardFirst,
+                        index === topPrestadores.length - 1 && styles.carouselCardLast,
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      {/* Foto de perfil */}
+                      {prestador.foto_perfil_url ? (
+                        <Image
+                          source={{ uri: `${prestador.foto_perfil_url}?t=${Date.now()}` }}
+                          style={styles.carouselFoto}
+                        />
+                      ) : (
+                        <View style={[styles.carouselFoto, styles.carouselFotoPlaceholder]}>
+                          <Text style={styles.carouselFotoText}>
+                            {prestador.nombre.charAt(0)}
+                            {prestador.apellido.charAt(0)}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Información */}
+                      <Text style={styles.carouselNombre} numberOfLines={1}>
+                        {prestador.nombre} {prestador.apellido}
+                      </Text>
+                      <Text style={styles.carouselServicio} numberOfLines={1}>
+                        {prestador.servicio_nombre}
+                      </Text>
+                      
+                      {/* Calificación */}
+                      <View style={styles.carouselRating}>
+                        <StarRating
+                          rating={prestador.calificacion_promedio || 0}
+                          size={12}
+                        />
+                        <Text style={styles.carouselRatingNumber}>
+                          {prestador.calificacion_promedio?.toFixed(1)}
+                        </Text>
+                      </View>
+                      <Text style={styles.carouselRatingCount}>
+                        ({prestador.cantidad_calificaciones} reseñas)
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
           )}
-        </ScrollView>
+        </>
       ) : (
         <View style={styles.prestadoresContainer}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => setSelectedServicio(null)}
+            onPress={() => {
+              setSelectedServicio(null);
+              setSelectedCategoria(null);
+            }}
           >
             <Text style={styles.backButtonText}>← Volver</Text>
           </TouchableOpacity>
@@ -537,26 +804,75 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
     color: colors.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
   },
   searchContainer: {
     padding: 16,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  categoriasCarouselContainer: {
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 12,
+  },
+  categoriasCarousel: {
+    flexGrow: 0,
+  },
+  categoriasCarouselContent: {
+    paddingHorizontal: 12,
+  },
+  categoriaCard: {
+    width: 90,
+    alignItems: "center",
+    marginHorizontal: 6,
+    paddingVertical: 8,
+  },
+  categoriaCardSelected: {
+    backgroundColor: colors.primaryLight + "20",
+    borderRadius: 12,
+  },
+  categoriaIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  categoriaIconImage: {
+    backgroundColor: colors.white,
+  },
+  categoriaIconSelected: {
+    borderColor: colors.primary,
+    borderWidth: 3,
+  },
+  categoriaIconText: {
+    fontSize: 28,
+  },
+  categoriaName: {
+    fontSize: 11,
+    color: colors.text,
+    textAlign: "center",
+    fontWeight: "500",
+  },
+  categoriaNameSelected: {
+    color: colors.primary,
+    fontWeight: "600",
   },
   searchInput: {
     backgroundColor: colors.backgroundSecondary,
@@ -757,6 +1073,92 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
+  carouselContainer: {
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  carouselTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: colors.text,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  carousel: {
+    flexGrow: 0,
+  },
+  carouselContent: {
+    paddingHorizontal: 12,
+  },
+  carouselCard: {
+    width: 140,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 12,
+    marginHorizontal: 4,
+    borderWidth: 2,
+    borderColor: colors.warning + "40",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    alignItems: "center",
+  },
+  carouselCardFirst: {
+    marginLeft: 12,
+  },
+  carouselCardLast: {
+    marginRight: 12,
+  },
+  carouselFoto: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginBottom: 8,
+  },
+  carouselFotoPlaceholder: {
+    backgroundColor: colors.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  carouselFotoText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+  carouselNombre: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  carouselServicio: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  carouselRating: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  carouselRatingNumber: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.warning,
+    marginLeft: 4,
+  },
+  carouselRatingCount: {
+    fontSize: 10,
     color: colors.textSecondary,
     textAlign: "center",
   },

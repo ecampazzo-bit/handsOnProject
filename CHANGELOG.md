@@ -5,6 +5,41 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.2.0] - 2025-01-XX
+
+### Agregado
+- **Carrusel de Categorías**: Implementado carrusel horizontal de categorías con iconos/imágenes en las pantallas de búsqueda y oferta de servicios.
+  - Carrusel debajo del campo de búsqueda en `BuscarServicios` y `OfrezcoServicios`
+  - Muestra imágenes de categorías cuando están disponibles en la base de datos
+  - Filtrado de servicios por categoría seleccionada
+  - Opción "Todas" para ver todos los servicios sin filtrar
+
+- **Campo URL en Categorías**: Agregado campo `url` a la tabla `categorias` en Supabase para almacenar URLs de imágenes representativas de cada categoría.
+  - Script SQL para agregar el campo (`agregar_url_categoria.sql`)
+  - Scripts para subir imágenes de categorías a Supabase Storage
+  - Documentación completa para gestión de imágenes de categorías
+
+### Mejorado
+- **Diseño de Logos**:
+  - Logo a color (`logocolor.png`) en pantalla de login
+  - Logo blanco (`logoblanco.png`) en barra superior de HomeScreen
+  - Logo en login aumentado 100% de tamaño para mejor visibilidad
+
+- **Interfaz de Búsqueda de Servicios**:
+  - Simplificado header de "BuscarServicios" de "Estoy buscando / Encuentra el profesional que necesitas" a solo "Buscando..."
+  - Reducido padding y tamaño de fuente para ocupar menos espacio vertical
+  - Ocultado nombre de categoría en lista de servicios cuando hay una categoría seleccionada (mejor UX)
+
+- **Interfaz de Ofrecer Servicios**:
+  - Agregado carrusel de categorías en la sección "Agregar Servicios"
+  - Filtrado por categoría y búsqueda por nombre
+  - Ocultado nombre de categoría cuando hay una categoría seleccionada
+
+### Documentación
+- Agregada documentación para subir imágenes de categorías
+- Scripts SQL para configuración de bucket de categorías
+- Guías rápidas para gestión de imágenes de categorías
+
 ## [1.1.1] - 2025-01-XX
 
 ### Corregido

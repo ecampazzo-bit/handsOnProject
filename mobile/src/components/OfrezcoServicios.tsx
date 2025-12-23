@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  Image,
 } from "react-native";
 import { supabase } from "../services/supabaseClient";
 import { getCurrentUser } from "../services/authService";
@@ -30,18 +31,45 @@ interface PrestadorServicio {
   destacado: boolean;
 }
 
+interface Categoria {
+  id: number;
+  nombre: string;
+  url: string | null;
+}
+
 export const OfrezcoServicios: React.FC = () => {
   const [misServicios, setMisServicios] = useState<PrestadorServicio[]>([]);
   const [serviciosDisponibles, setServiciosDisponibles] = useState<Servicio[]>(
     []
   );
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [selectedCategoria, setSelectedCategoria] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [prestadorId, setPrestadorId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     loadData();
+    loadCategorias();
   }, []);
+
+  const loadCategorias = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("categorias")
+        .select("id, nombre, url")
+        .order("nombre");
+
+      if (error) {
+        console.error("Error al cargar categorías:", error);
+        return;
+      }
+
+      setCategorias(data || []);
+    } catch (error) {
+      console.error("Error inesperado al cargar categorías:", error);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -216,23 +244,29 @@ export const OfrezcoServicios: React.FC = () => {
     );
   };
 
-  // Filtrar servicios no ofrecidos y aplicar búsqueda
+  // Filtrar servicios no ofrecidos y aplicar búsqueda y categoría
   const serviciosNoOfrecidos = useMemo(() => {
     const noOfrecidos = serviciosDisponibles.filter(
       (servicio) => !misServicios.some((s) => s.servicio_id === servicio.id)
     );
 
+    // Filtrar por categoría
+    const filtradosPorCategoria = selectedCategoria === null
+      ? noOfrecidos
+      : noOfrecidos.filter((servicio) => servicio.categoria_id === selectedCategoria);
+
+    // Filtrar por búsqueda
     if (!searchQuery.trim()) {
-      return noOfrecidos;
+      return filtradosPorCategoria;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    return noOfrecidos.filter(
+    return filtradosPorCategoria.filter(
       (servicio) =>
         servicio.nombre.toLowerCase().includes(query) ||
         servicio.categoria_nombre?.toLowerCase().includes(query)
     );
-  }, [serviciosDisponibles, misServicios, searchQuery]);
+  }, [serviciosDisponibles, misServicios, searchQuery, selectedCategoria]);
 
   if (loading) {
     return (
@@ -305,7 +339,7 @@ export const OfrezcoServicios: React.FC = () => {
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar servicios por nombre o categoría..."
+            placeholder="Buscar servicios por nombre..."
             placeholderTextColor={colors.textLight}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -321,6 +355,70 @@ export const OfrezcoServicios: React.FC = () => {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Carrusel de Categorías */}
+        {categorias.length > 0 && (
+          <View style={styles.categoriasCarouselContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.categoriasCarousel}
+              contentContainerStyle={styles.categoriasCarouselContent}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.categoriaCard,
+                  selectedCategoria === null && styles.categoriaCardSelected,
+                ]}
+                onPress={() => setSelectedCategoria(null)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.categoriaIcon, selectedCategoria === null && styles.categoriaIconSelected]}>
+                  <Text style={styles.categoriaIconText}>📂</Text>
+                </View>
+                <Text style={[styles.categoriaName, selectedCategoria === null && styles.categoriaNameSelected]}>
+                  Todas
+                </Text>
+              </TouchableOpacity>
+              {categorias.map((categoria) => (
+                <TouchableOpacity
+                  key={categoria.id}
+                  style={[
+                    styles.categoriaCard,
+                    selectedCategoria === categoria.id && styles.categoriaCardSelected,
+                  ]}
+                  onPress={() => setSelectedCategoria(categoria.id)}
+                  activeOpacity={0.7}
+                >
+                  {categoria.url ? (
+                    <Image
+                      source={{ uri: categoria.url }}
+                      style={[
+                        styles.categoriaIcon,
+                        styles.categoriaIconImage,
+                        selectedCategoria === categoria.id && styles.categoriaIconSelected,
+                      ]}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.categoriaIcon, selectedCategoria === categoria.id && styles.categoriaIconSelected]}>
+                      <Text style={styles.categoriaIconText}>📦</Text>
+                    </View>
+                  )}
+                  <Text
+                    style={[
+                      styles.categoriaName,
+                      selectedCategoria === categoria.id && styles.categoriaNameSelected,
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {categoria.nombre}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {serviciosNoOfrecidos.length === 0 ? (
           <View style={styles.emptyState}>
@@ -339,9 +437,11 @@ export const OfrezcoServicios: React.FC = () => {
             >
               <View>
                 <Text style={styles.servicioNombre}>{servicio.nombre}</Text>
-                <Text style={styles.servicioCategoria}>
-                  {servicio.categoria_nombre}
-                </Text>
+                {selectedCategoria === null && (
+                  <Text style={styles.servicioCategoria}>
+                    {servicio.categoria_nombre}
+                  </Text>
+                )}
               </View>
               <Text style={styles.addIcon}>+</Text>
             </TouchableOpacity>
@@ -386,13 +486,67 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     position: "relative",
-    marginBottom: 16,
+    marginBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
+  },
+  categoriasCarouselContainer: {
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  categoriasCarousel: {
+    flexGrow: 0,
+  },
+  categoriasCarouselContent: {
+    paddingHorizontal: 12,
+  },
+  categoriaCard: {
+    width: 90,
+    alignItems: "center",
+    marginHorizontal: 6,
+    paddingVertical: 8,
+  },
+  categoriaCardSelected: {
+    backgroundColor: colors.primaryLight + "20",
+    borderRadius: 12,
+  },
+  categoriaIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  categoriaIconImage: {
+    backgroundColor: colors.white,
+  },
+  categoriaIconSelected: {
+    borderColor: colors.primary,
+    borderWidth: 3,
+  },
+  categoriaIconText: {
+    fontSize: 28,
+  },
+  categoriaName: {
+    fontSize: 11,
+    color: colors.text,
+    textAlign: "center",
+    fontWeight: "500",
+  },
+  categoriaNameSelected: {
+    color: colors.primary,
+    fontWeight: "600",
   },
   searchIcon: {
     fontSize: 18,

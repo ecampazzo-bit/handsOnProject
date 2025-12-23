@@ -176,7 +176,7 @@ export const HomeScreen: React.FC = () => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Image
-            source={require("../../assets/logo.png")}
+            source={require("../../assets/logoblanco.png")}
             style={styles.logo}
             resizeMode="contain"
           />

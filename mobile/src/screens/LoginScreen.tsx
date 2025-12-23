@@ -196,7 +196,7 @@ export const LoginScreen: React.FC = () => {
       >
         <View style={styles.header}>
           <Image
-            source={require("../../assets/logo.png")}
+            source={require("../../assets/logocolor.png")}
             style={styles.logoImage}
             resizeMode="contain"
           />
@@ -307,8 +307,8 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   logoImage: {
-    width: 200,
-    height: 120,
+    width: 400,
+    height: 240,
     marginBottom: 16,
   },
   subtitle: {
