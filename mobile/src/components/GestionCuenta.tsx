@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import {
   View,
   Text,
@@ -22,6 +23,10 @@ import {
   takePhotoWithCamera,
 } from "../services/profileService";
 import * as ImageManipulator from "expo-image-manipulator";
+import { RootStackParamList } from "../types/navigation";
+import { isPhoneVerified } from "../services/phoneVerificationService";
+import { resendVerificationEmail } from "../services/authService";
+import { formatArgentinePhone, phoneSchema } from "../utils/validation";
 
 interface PrestadorData {
   descripcion_profesional: string | null;
@@ -41,9 +46,15 @@ interface GestionCuentaProps {
   onConvertirseEnPrestador?: () => void;
 }
 
+type GestionCuentaNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "Home"
+>;
+
 export const GestionCuenta: React.FC<GestionCuentaProps> = ({
   onConvertirseEnPrestador,
 }) => {
+  const navigation = useNavigation<GestionCuentaNavigationProp>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -52,6 +63,10 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(
     null
   );
+  const [telefonoVerificado, setTelefonoVerificado] = useState<boolean>(false);
+  const [emailVerificado, setEmailVerificado] = useState<boolean>(false);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [newPhone, setNewPhone] = useState("");
   const [formData, setFormData] = useState<PrestadorData>({
     descripcion_profesional: null,
     años_experiencia: null,
@@ -72,7 +87,7 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
 
   useFocusEffect(
     useCallback(() => {
-      // Recargar datos cuando se enfoca la pantalla
+      // Recargar datos cuando se enfoca la pantalla (incluyendo estado de verificación)
       loadUserData();
     }, [])
   );
@@ -87,7 +102,19 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
       }
 
       setUserData(user);
-      setProfilePictureUrl(user.foto_perfil_url || null);
+      // Agregar timestamp para evitar caché de imágenes
+      const photoUrl = user.foto_perfil_url
+        ? `${user.foto_perfil_url}?t=${Date.now()}`
+        : null;
+      setProfilePictureUrl(photoUrl);
+
+      // Verificar si el teléfono está verificado
+      const phoneVerified = await isPhoneVerified(user.id);
+      setTelefonoVerificado(phoneVerified);
+
+      // Verificar si el email está confirmado
+      const { data: authUser } = await supabase.auth.getUser();
+      setEmailVerificado(!!authUser?.user?.email_confirmed_at);
 
       // Si el usuario es prestador o ambos, cargar datos del prestador
       if (user.tipo_usuario === "prestador" || user.tipo_usuario === "ambos") {
@@ -190,7 +217,9 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
       }
 
       if (result.url) {
-        setProfilePictureUrl(result.url);
+        // Agregar timestamp para evitar caché
+        const urlWithTimestamp = `${result.url}?t=${Date.now()}`;
+        setProfilePictureUrl(urlWithTimestamp);
         // Actualizar userData local
         setUserData({ ...userData, foto_perfil_url: result.url });
         Alert.alert("Éxito", "Foto de perfil actualizada correctamente");
@@ -463,11 +492,205 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Email:</Text>
-          <Text style={styles.infoValue}>{userData?.email}</Text>
+          <View style={styles.phoneRow}>
+            <Text 
+              style={styles.infoValue} 
+              numberOfLines={1} 
+              ellipsizeMode="tail"
+            >
+              {userData?.email}
+            </Text>
+            {emailVerificado ? (
+              <View style={styles.verifiedBadge}>
+                <Text style={styles.verifiedText}>✓ Verificado</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.verifyButton}
+                onPress={async () => {
+                  if (userData?.email) {
+                    setSaving(true);
+                    try {
+                      const { error } = await resendVerificationEmail(
+                        userData.email
+                      );
+                      if (error) {
+                        Alert.alert(
+                          "Error",
+                          error.message ||
+                            "No se pudo enviar el email de verificación"
+                        );
+                      } else {
+                        Alert.alert(
+                          "Email enviado",
+                          "Hemos enviado un email de verificación a tu correo. Por favor, revisa tu bandeja de entrada."
+                        );
+                      }
+                    } catch (error: any) {
+                      Alert.alert(
+                        "Error",
+                        error.message || "Error al enviar email"
+                      );
+                    } finally {
+                      setSaving(false);
+                    }
+                  }
+                }}
+              >
+                <Text style={styles.verifyButtonText}>Verificar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Teléfono:</Text>
-          <Text style={styles.infoValue}>{userData?.telefono}</Text>
+          <View style={styles.phoneRow}>
+            {editingPhone ? (
+              <View style={styles.editPhoneContainer}>
+                <TextInput
+                  style={styles.phoneInput}
+                  value={newPhone}
+                  onChangeText={setNewPhone}
+                  placeholder="Ingresa tu teléfono"
+                  keyboardType="phone-pad"
+                  autoFocus
+                  placeholderTextColor={colors.textLight}
+                />
+                <View style={styles.editPhoneButtons}>
+                  <TouchableOpacity
+                    style={[styles.editPhoneButton, styles.cancelButton]}
+                    onPress={() => {
+                      setNewPhone(userData?.telefono || "");
+                      setEditingPhone(false);
+                    }}
+                    disabled={saving}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.editPhoneButton, styles.saveButton]}
+                    onPress={async () => {
+                      // Validar teléfono
+                      try {
+                        await phoneSchema.validate(newPhone);
+                      } catch (error: any) {
+                        Alert.alert(
+                          "Error",
+                          error.message || "Formato de teléfono inválido"
+                        );
+                        return;
+                      }
+
+                      const formattedPhone = formatArgentinePhone(newPhone);
+
+                      if (formattedPhone === userData?.telefono) {
+                        Alert.alert("Info", "El teléfono es el mismo");
+                        setEditingPhone(false);
+                        return;
+                      }
+
+                      setSaving(true);
+                      try {
+                        const { user } = await getCurrentUser();
+                        if (!user) {
+                          Alert.alert(
+                            "Error",
+                            "No se pudo identificar al usuario"
+                          );
+                          return;
+                        }
+
+                        // Actualizar teléfono en la base de datos
+                        const { error: updateError } = await supabase
+                          .from("users")
+                          .update({
+                            telefono: formattedPhone,
+                            telefono_verificado: false,
+                          })
+                          .eq("id", user.id);
+
+                        if (updateError) {
+                          Alert.alert(
+                            "Error",
+                            updateError.message ||
+                              "No se pudo actualizar el teléfono"
+                          );
+                          return;
+                        }
+
+                        // Recargar datos del usuario
+                        await loadUserData();
+                        setEditingPhone(false);
+
+                        Alert.alert(
+                          "Teléfono actualizado",
+                          "Tu teléfono ha sido actualizado. Ahora puedes verificarlo.",
+                          [
+                            {
+                              text: "Verificar ahora",
+                              onPress: () => {
+                                navigation.navigate("PhoneVerification", {
+                                  telefono: formattedPhone,
+                                });
+                              },
+                            },
+                            { text: "Después", style: "cancel" },
+                          ]
+                        );
+                      } catch (error: any) {
+                        Alert.alert(
+                          "Error",
+                          error.message || "Error al actualizar teléfono"
+                        );
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                      <Text style={styles.saveButtonText}>Guardar</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.infoValue}>{userData?.telefono}</Text>
+                {telefonoVerificado ? (
+                  <View style={styles.verifiedBadge}>
+                    <Text style={styles.verifiedText}>✓ Verificado</Text>
+                  </View>
+                ) : (
+                  <View style={styles.phoneActions}>
+                    <TouchableOpacity
+                      style={styles.editPhoneLink}
+                      onPress={() => {
+                        setNewPhone(userData?.telefono || "");
+                        setEditingPhone(true);
+                      }}
+                    >
+                      <Text style={styles.editPhoneLinkText}>Editar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.verifyButton}
+                      onPress={() => {
+                        if (userData?.telefono) {
+                          navigation.navigate("PhoneVerification", {
+                            telefono: userData.telefono,
+                          });
+                        }
+                      }}
+                    >
+                      <Text style={styles.verifyButtonText}>Verificar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Tipo de Usuario:</Text>
@@ -828,6 +1051,90 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     textAlign: "right",
+    flexShrink: 1,
+  },
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  verifiedBadge: {
+    backgroundColor: "#10B981",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  verifiedText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  verifyButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  verifyButtonText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  phoneActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  editPhoneLink: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  editPhoneLinkText: {
+    fontSize: 12,
+    color: colors.primary,
+    textDecorationLine: "underline",
+  },
+  editPhoneContainer: {
+    flex: 1,
+    marginTop: 8,
+  },
+  phoneInput: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 8,
+  },
+  editPhoneButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  editPhoneButton: {
+    flex: 1,
+    padding: 8,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: colors.border,
+  },
+  saveButton: {
+    backgroundColor: colors.primary,
+  },
+  cancelButtonText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  saveButtonText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "600",
   },
   section: {
     marginBottom: 24,
