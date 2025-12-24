@@ -164,6 +164,12 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <Link
+              href="/admin/categorias"
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            >
+              Gestión de Categorías
+            </Link>
+            <Link
               href="/admin/promociones"
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
