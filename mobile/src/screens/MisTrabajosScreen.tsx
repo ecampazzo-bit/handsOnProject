@@ -45,6 +45,8 @@ interface Trabajo {
   ya_calificado?: boolean;
   es_cliente?: boolean; // Si el usuario actual es el cliente en este trabajo
   es_prestador?: boolean; // Si el usuario actual es el prestador en este trabajo
+  notas_prestador?: string | null;
+  notas_cliente?: string | null;
   solicitud: {
     servicio: { nombre: string; id?: number };
     descripcion: string | null;
@@ -70,7 +72,7 @@ export const MisTrabajosScreen: React.FC = () => {
   >(null);
   const [puedeSerPrestadorYCliente, setPuedeSerPrestadorYCliente] =
     useState(false);
-  const [activeTab, setActiveTab] = useState<"en_curso" | "terminados">(
+  const [activeTab, setActiveTab] = useState<"en_curso" | "terminados" | "cancelados">(
     "en_curso"
   );
 
@@ -87,6 +89,13 @@ export const MisTrabajosScreen: React.FC = () => {
     useState<Trabajo | null>(null);
   const [fotosTrabajo, setFotosTrabajo] = useState<string[]>([]);
   const [uploadingFotos, setUploadingFotos] = useState(false);
+
+  // Estados para el modal de cancelar trabajo
+  const [showCancelarModal, setShowCancelarModal] = useState(false);
+  const [selectedTrabajoParaCancelar, setSelectedTrabajoParaCancelar] =
+    useState<Trabajo | null>(null);
+  const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [cancelingTrabajo, setCancelingTrabajo] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -160,6 +169,8 @@ export const MisTrabajosScreen: React.FC = () => {
           created_at,
           prestador_id,
           cliente_id,
+          notas_prestador,
+          notas_cliente,
           solicitudes_servicio (
             descripcion_problema,
             servicio_id,
@@ -236,6 +247,8 @@ export const MisTrabajosScreen: React.FC = () => {
           ya_calificado: yaCalificado,
           es_cliente: esClienteEnEsteTrabajo, // Agregar flag para saber el rol en este trabajo
           es_prestador: esPrestadorEnEsteTrabajo, // Agregar flag para saber el rol en este trabajo
+          notas_prestador: t.notas_prestador,
+          notas_cliente: t.notas_cliente,
           servicio_id: t.solicitudes_servicio?.servicio_id,
           solicitud: {
             servicio: {
@@ -403,6 +416,88 @@ export const MisTrabajosScreen: React.FC = () => {
       );
     } finally {
       setUploadingFotos(false);
+    }
+  };
+
+  const handleCancelar = (trabajo: Trabajo) => {
+    setSelectedTrabajoParaCancelar(trabajo);
+    setMotivoCancelacion("");
+    setShowCancelarModal(true);
+  };
+
+  const handleConfirmarCancelar = async () => {
+    if (!selectedTrabajoParaCancelar) return;
+
+    if (!motivoCancelacion.trim()) {
+      Alert.alert("Motivo requerido", "Por favor, ingresa el motivo de la cancelación.");
+      return;
+    }
+
+    try {
+      setCancelingTrabajo(true);
+
+      const trabajo = selectedTrabajoParaCancelar;
+      const esCliente = trabajo.es_cliente;
+      const esPrestador = trabajo.es_prestador;
+
+      // Determinar en qué campo guardar el motivo según el rol del usuario
+      const updateData: any = {
+        estado: "cancelado",
+      };
+
+      if (esPrestador) {
+        updateData.notas_prestador = motivoCancelacion.trim();
+      } else if (esCliente) {
+        updateData.notas_cliente = motivoCancelacion.trim();
+      }
+
+      // Actualizar el estado del trabajo a cancelado y agregar el motivo
+      const { error } = await supabase
+        .from("trabajos")
+        .update(updateData)
+        .eq("id", trabajo.id);
+
+      if (error) throw error;
+
+      // Notificar al otro usuario sobre la cancelación
+      if (trabajo) {
+        // Obtener información del servicio para la notificación
+        const { data: trabajoData } = await supabase
+          .from("trabajos")
+          .select("solicitudes_servicio(servicios(nombre))")
+          .eq("id", trabajo.id)
+          .single();
+
+        const servicioNombre =
+          (trabajoData?.solicitudes_servicio as any)?.servicios?.nombre || "servicio";
+
+        const mensajeNotificacion = esPrestador
+          ? `El prestador ha cancelado el trabajo de ${servicioNombre}. Motivo: ${motivoCancelacion.trim()}`
+          : `El cliente ha cancelado el trabajo de ${servicioNombre}. Motivo: ${motivoCancelacion.trim()}`;
+
+        await supabase.from("notificaciones").insert({
+          usuario_id: trabajo.otro_usuario.id,
+          tipo: "sistema",
+          titulo: "Trabajo cancelado",
+          contenido: mensajeNotificacion,
+          referencia_id: trabajo.id,
+          referencia_tipo: "trabajo",
+          leida: false,
+        });
+      }
+
+      setShowCancelarModal(false);
+      setMotivoCancelacion("");
+      setSelectedTrabajoParaCancelar(null);
+      Alert.alert("Éxito", "El trabajo ha sido cancelado.");
+      loadData();
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error.message || "No se pudo cancelar el trabajo"
+      );
+    } finally {
+      setCancelingTrabajo(false);
     }
   };
 
@@ -660,14 +755,18 @@ export const MisTrabajosScreen: React.FC = () => {
       }
     }
 
-    // Luego filtrar por estado (en curso o terminados)
+    // Luego filtrar por estado (en curso, terminados o cancelados)
     if (activeTab === "en_curso") {
       // Trabajos que no están completados ni cancelados
       return trabajo.estado !== "completado" && trabajo.estado !== "cancelado";
-    } else {
+    } else if (activeTab === "terminados") {
       // Trabajos completados
       return trabajo.estado === "completado";
+    } else if (activeTab === "cancelados") {
+      // Trabajos cancelados
+      return trabajo.estado === "cancelado";
     }
+    return false;
   });
 
   // Log para debugging del filtrado
@@ -753,7 +852,7 @@ export const MisTrabajosScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Tabs de estado (en curso/terminados) */}
+      {/* Tabs de estado (en curso/terminados/cancelados) */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === "en_curso" && styles.tabActive]}
@@ -781,6 +880,19 @@ export const MisTrabajosScreen: React.FC = () => {
             ✅ Terminados
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "cancelados" && styles.tabActive]}
+          onPress={() => setActiveTab("cancelados")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "cancelados" && styles.tabTextActive,
+            ]}
+          >
+            ❌ Cancelados
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -796,22 +908,38 @@ export const MisTrabajosScreen: React.FC = () => {
                 // Determinar el mensaje según el contexto
                 if (puedeSerPrestadorYCliente && activeRoleTab) {
                   if (activeRoleTab === "prestador") {
-                    return activeTab === "en_curso"
-                      ? "No tienes trabajos en curso como prestador."
-                      : "No tienes trabajos terminados como prestador.";
+                    if (activeTab === "en_curso") {
+                      return "No tienes trabajos en curso como prestador.";
+                    } else if (activeTab === "terminados") {
+                      return "No tienes trabajos terminados como prestador.";
+                    } else {
+                      return "No tienes trabajos cancelados como prestador.";
+                    }
                   } else {
-                    return activeTab === "en_curso"
-                      ? "No tienes trabajos solicitados en curso. Acepta una cotización en 'Mis Presupuestos' para comenzar un trabajo."
-                      : "No tienes trabajos solicitados terminados.";
+                    if (activeTab === "en_curso") {
+                      return "No tienes trabajos solicitados en curso. Acepta una cotización en 'Mis Presupuestos' para comenzar un trabajo.";
+                    } else if (activeTab === "terminados") {
+                      return "No tienes trabajos solicitados terminados.";
+                    } else {
+                      return "No tienes trabajos solicitados cancelados.";
+                    }
                   }
                 } else if (user?.tipo_usuario === "cliente") {
-                  return activeTab === "en_curso"
-                    ? "No tienes trabajos solicitados en curso. Acepta una cotización en 'Mis Presupuestos' para comenzar un trabajo."
-                    : "No tienes trabajos solicitados terminados.";
+                  if (activeTab === "en_curso") {
+                    return "No tienes trabajos solicitados en curso. Acepta una cotización en 'Mis Presupuestos' para comenzar un trabajo.";
+                  } else if (activeTab === "terminados") {
+                    return "No tienes trabajos solicitados terminados.";
+                  } else {
+                    return "No tienes trabajos solicitados cancelados.";
+                  }
                 } else {
-                  return activeTab === "en_curso"
-                    ? "No tienes trabajos en curso."
-                    : "No tienes trabajos terminados.";
+                  if (activeTab === "en_curso") {
+                    return "No tienes trabajos en curso.";
+                  } else if (activeTab === "terminados") {
+                    return "No tienes trabajos terminados.";
+                  } else {
+                    return "No tienes trabajos cancelados.";
+                  }
                 }
               })()}
             </Text>
@@ -848,6 +976,8 @@ export const MisTrabajosScreen: React.FC = () => {
                       backgroundColor:
                         trabajo.estado === "completado"
                           ? colors.success
+                          : trabajo.estado === "cancelado"
+                          ? colors.error
                           : colors.warning,
                     },
                   ]}
@@ -971,6 +1101,32 @@ export const MisTrabajosScreen: React.FC = () => {
                 </Text>
               )}
 
+              {/* Motivo de cancelación */}
+              {trabajo.estado === "cancelado" && (
+                <View style={styles.motivoCancelacionContainer}>
+                  {(() => {
+                    const canceladoPor = trabajo.notas_prestador 
+                      ? "🔧 Cancelado por prestador" 
+                      : trabajo.notas_cliente 
+                      ? "👤 Cancelado por cliente" 
+                      : "❌ Cancelado";
+                    return (
+                      <>
+                        <Text style={styles.canceladoPorLabel}>
+                          {canceladoPor}
+                        </Text>
+                        <Text style={styles.motivoCancelacionLabel}>
+                          Motivo:
+                        </Text>
+                        <Text style={styles.motivoCancelacion}>
+                          {trabajo.notas_prestador || trabajo.notas_cliente || "Sin motivo especificado"}
+                        </Text>
+                      </>
+                    );
+                  })()}
+                </View>
+              )}
+
               <View style={styles.cardFooter}>
                 <Text style={styles.fecha}>
                   {new Date(trabajo.created_at).toLocaleDateString("es-AR", {
@@ -984,32 +1140,52 @@ export const MisTrabajosScreen: React.FC = () => {
 
               {/* Botones de acción */}
               <View style={styles.actionButtons}>
-                {/* Botón de finalizar para prestadores */}
+                {/* Botón de finalizar y cancelar para prestadores */}
                 {trabajo.es_prestador && 
                  trabajo.estado !== "completado" && 
                  trabajo.estado !== "cancelado" && (
-                  <TouchableOpacity
-                    style={styles.btnFinalizar}
-                    onPress={() => handleFinalizar(trabajo)}
-                  >
-                    <Text style={styles.btnTextWhite}>
-                      📸 Finalizar y Agregar al Portfolio
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={styles.actionButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.btnFinalizar}
+                      onPress={() => handleFinalizar(trabajo)}
+                    >
+                      <Text style={styles.btnTextWhite}>
+                        📸 Finalizar y Agregar al Portfolio
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.btnCancelar}
+                      onPress={() => handleCancelar(trabajo)}
+                    >
+                      <Text style={styles.btnCancelarText}>
+                        Cancelar
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
 
-                {/* Botón de finalizar para clientes (trabajos en curso) */}
+                {/* Botón de finalizar y cancelar para clientes (trabajos en curso) */}
                 {trabajo.es_cliente &&
                   trabajo.estado !== "completado" &&
                   trabajo.estado !== "cancelado" && (
-                    <TouchableOpacity
-                      style={styles.btnFinalizar}
-                      onPress={() => handleFinalizarComoCliente(trabajo.id)}
-                    >
-                      <Text style={styles.btnTextWhite}>
-                        Marcar como Finalizado
-                      </Text>
-                    </TouchableOpacity>
+                    <View style={styles.actionButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.btnFinalizar}
+                        onPress={() => handleFinalizarComoCliente(trabajo.id)}
+                      >
+                        <Text style={styles.btnTextWhite}>
+                          Marcar como Finalizado
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.btnCancelar}
+                        onPress={() => handleCancelar(trabajo)}
+                      >
+                        <Text style={styles.btnCancelarText}>
+                          Cancelar
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
 
                 {/* Botón de calificar para clientes (trabajos terminados) */}
@@ -1177,6 +1353,59 @@ export const MisTrabajosScreen: React.FC = () => {
                   <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.btnTextWhite}>Finalizar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Cancelar Trabajo */}
+      <Modal
+        visible={showCancelarModal}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Cancelar Trabajo</Text>
+            <Text style={styles.modalSubtitle}>
+              Se registrará que el trabajo no se terminó. Por favor, indica el motivo de la cancelación.
+            </Text>
+
+            <TextInput
+              style={styles.cancelacionInput}
+              placeholder="Ingresa el motivo de la cancelación..."
+              multiline
+              numberOfLines={4}
+              value={motivoCancelacion}
+              onChangeText={setMotivoCancelacion}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.btnCancelModal}
+                onPress={() => {
+                  setShowCancelarModal(false);
+                  setMotivoCancelacion("");
+                  setSelectedTrabajoParaCancelar(null);
+                }}
+                disabled={cancelingTrabajo}
+              >
+                <Text style={styles.btnTextCancel}>Volver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.btnSend,
+                  (cancelingTrabajo || !motivoCancelacion.trim()) && { opacity: 0.7 },
+                ]}
+                onPress={handleConfirmarCancelar}
+                disabled={cancelingTrabajo || !motivoCancelacion.trim()}
+              >
+                {cancelingTrabajo ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text style={styles.btnTextWhite}>Confirmar Cancelación</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1415,6 +1644,31 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontStyle: "italic",
   },
+  motivoCancelacionContainer: {
+    backgroundColor: colors.errorLight || "#FEE2E2",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  canceladoPorLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.error,
+    marginBottom: 8,
+  },
+  motivoCancelacionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.error,
+    marginBottom: 6,
+  },
+  motivoCancelacion: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1427,11 +1681,29 @@ const styles = StyleSheet.create({
   monto: { fontSize: 15, fontWeight: "bold", color: colors.primary },
 
   actionButtons: { marginTop: 5 },
+  actionButtonsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
   btnFinalizar: {
+    flex: 5,
     backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
+  },
+  btnCancelar: {
+    flex: 1,
+    backgroundColor: colors.error,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnCancelarText: {
+    color: colors.white,
+    fontWeight: "bold",
+    fontSize: 13,
   },
   btnCalificar: {
     backgroundColor: colors.warning,
@@ -1483,7 +1755,24 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     marginBottom: 20,
   },
+  cancelacionInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    height: 120,
+    textAlignVertical: "top",
+    marginBottom: 20,
+  },
   modalActions: { flexDirection: "row", gap: 10 },
+  btnCancelModal: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   btnCancel: {
     flex: 1,
     paddingVertical: 14,

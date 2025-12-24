@@ -123,3 +123,4 @@ Esta versión introduce un sistema completo de promociones especiales tanto en l
 - El carrusel se reinicia al volver a la pantalla de promociones
 - Las promociones se filtran automáticamente por tipo de usuario y fechas
 
+
