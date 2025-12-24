@@ -832,7 +832,7 @@ export const RegisterScreen: React.FC = () => {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.logo}>HandsOn</Text>
+          <Text style={styles.logo}>ofiSí</Text>
           {renderProgressIndicator()}
         </View>
 
@@ -900,6 +900,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: colors.text,
     marginBottom: 8,
+    textAlign: "center",
   },
   stepDescription: {
     fontSize: 14,
