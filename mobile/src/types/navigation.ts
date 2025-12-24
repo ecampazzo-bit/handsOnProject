@@ -23,6 +23,10 @@ export type RootStackParamList = {
   MisTrabajos: undefined;
   MisCotizaciones: undefined;
   Notificaciones: undefined;
+  PhoneVerification: {
+    telefono: string;
+  };
+  Promociones: undefined;
 };
 
 export type RegisterFormData = {

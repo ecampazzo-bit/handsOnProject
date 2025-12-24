@@ -22,6 +22,12 @@ import { getCurrentUserId, getCurrentUser } from "../services/authService";
 import { RootStackParamList, User } from "../types/navigation";
 import { finalizarTrabajo } from "../services/solicitudService";
 import { createCalificacion } from "../services/ratingService";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+import {
+  uploadPortfolioPhotos,
+  createPortfolioItem,
+} from "../services/portfolioService";
 
 type MisTrabajosNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -35,11 +41,12 @@ interface Trabajo {
   created_at: string;
   prestador_id: number;
   cliente_id: string;
+  servicio_id?: number;
   ya_calificado?: boolean;
   es_cliente?: boolean; // Si el usuario actual es el cliente en este trabajo
   es_prestador?: boolean; // Si el usuario actual es el prestador en este trabajo
   solicitud: {
-    servicio: { nombre: string };
+    servicio: { nombre: string; id?: number };
     descripcion: string | null;
   };
   otro_usuario: {
@@ -73,6 +80,13 @@ export const MisTrabajosScreen: React.FC = () => {
   const [rating, setRating] = useState(5);
   const [comentario, setComentario] = useState("");
   const [ratingLoading, setRatingLoading] = useState(false);
+
+  // Estados para el modal de finalizar trabajo con fotos
+  const [showFinalizarModal, setShowFinalizarModal] = useState(false);
+  const [selectedTrabajoParaFinalizar, setSelectedTrabajoParaFinalizar] =
+    useState<Trabajo | null>(null);
+  const [fotosTrabajo, setFotosTrabajo] = useState<string[]>([]);
+  const [uploadingFotos, setUploadingFotos] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -148,7 +162,8 @@ export const MisTrabajosScreen: React.FC = () => {
           cliente_id,
           solicitudes_servicio (
             descripcion_problema,
-            servicios (nombre)
+            servicio_id,
+            servicios (id, nombre)
           ),
           cliente:users!trabajos_cliente_id_fkey (id, nombre, apellido, foto_perfil_url, telefono),
           prestador:prestadores (
@@ -221,8 +236,12 @@ export const MisTrabajosScreen: React.FC = () => {
           ya_calificado: yaCalificado,
           es_cliente: esClienteEnEsteTrabajo, // Agregar flag para saber el rol en este trabajo
           es_prestador: esPrestadorEnEsteTrabajo, // Agregar flag para saber el rol en este trabajo
+          servicio_id: t.solicitudes_servicio?.servicio_id,
           solicitud: {
-            servicio: t.solicitudes_servicio?.servicios,
+            servicio: {
+              ...t.solicitudes_servicio?.servicios,
+              id: t.solicitudes_servicio?.servicios?.id,
+            },
             descripcion: t.solicitudes_servicio?.descripcion_problema,
           },
           otro_usuario: {
@@ -268,32 +287,123 @@ export const MisTrabajosScreen: React.FC = () => {
     loadData();
   };
 
-  const handleFinalizar = async (trabajoId: number) => {
-    Alert.alert(
-      "Finalizar Trabajo",
-      "¿Estás seguro de que has completado este servicio? El cliente será notificado para calificar.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Sí, finalizar",
-          onPress: async () => {
-            try {
-              setLoading(true);
-              const { error } = await finalizarTrabajo(trabajoId);
-              if (error) throw error;
-              Alert.alert("Éxito", "Trabajo marcado como finalizado.");
-              loadData();
-            } catch (error: any) {
-              Alert.alert(
-                "Error",
-                error.message || "No se pudo finalizar el trabajo"
-              );
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  const handleSelectPhoto = async () => {
+    if (fotosTrabajo.length >= 2) {
+      Alert.alert(
+        "Límite alcanzado",
+        "Puedes agregar máximo 2 fotos del trabajo finalizado."
+      );
+      return;
+    }
+
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permisos necesarios",
+          "Necesitamos acceso a tu galería para seleccionar fotos."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        // Convertir a JPG
+        const manipulatedImage = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [],
+          {
+            compress: 0.8,
+            format: ImageManipulator.SaveFormat.JPEG,
+          }
+        );
+        setFotosTrabajo([...fotosTrabajo, manipulatedImage.uri]);
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo seleccionar la foto");
+    }
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setFotosTrabajo(fotosTrabajo.filter((_, i) => i !== index));
+  };
+
+  const handleFinalizar = (trabajo: Trabajo) => {
+    setSelectedTrabajoParaFinalizar(trabajo);
+    setFotosTrabajo([]);
+    setShowFinalizarModal(true);
+  };
+
+  const handleConfirmarFinalizar = async () => {
+    if (!selectedTrabajoParaFinalizar) return;
+
+    try {
+      setUploadingFotos(true);
+
+      let fotosUrls: string[] = [];
+
+      // Subir fotos si hay alguna seleccionada
+      if (fotosTrabajo.length > 0) {
+        // Obtener el usuario_id del prestador para subir las fotos
+        const { data: prestadorData } = await supabase
+          .from("prestadores")
+          .select("usuario_id")
+          .eq("id", selectedTrabajoParaFinalizar.prestador_id)
+          .single();
+
+        if (!prestadorData?.usuario_id) {
+          throw new Error("No se pudo obtener la información del prestador");
+        }
+
+        fotosUrls = await uploadPortfolioPhotos(
+          prestadorData.usuario_id,
+          fotosTrabajo
+        );
+      }
+
+      // Finalizar el trabajo
+      const servicioId =
+        selectedTrabajoParaFinalizar.servicio_id ||
+        selectedTrabajoParaFinalizar.solicitud.servicio.id;
+
+      if (!servicioId) {
+        Alert.alert(
+          "Error",
+          "No se pudo obtener la información del servicio"
+        );
+        return;
+      }
+
+      const { error } = await finalizarTrabajo(
+        selectedTrabajoParaFinalizar.id,
+        fotosUrls,
+        servicioId,
+        selectedTrabajoParaFinalizar.prestador_id,
+        selectedTrabajoParaFinalizar.solicitud.servicio.nombre
+      );
+
+      if (error) throw error;
+
+      setShowFinalizarModal(false);
+      setFotosTrabajo([]);
+      setSelectedTrabajoParaFinalizar(null);
+      Alert.alert("Éxito", "Trabajo marcado como finalizado.");
+      loadData();
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error.message || "No se pudo finalizar el trabajo"
+      );
+    } finally {
+      setUploadingFotos(false);
+    }
   };
 
   const handleFinalizarComoCliente = async (trabajoId: number) => {
@@ -568,6 +678,7 @@ export const MisTrabajosScreen: React.FC = () => {
     puedeSerPrestadorYCliente,
     activeRoleTab,
     activeTab,
+    trabajosPrestador: trabajosFiltrados.filter((t) => t.es_prestador && t.estado !== "completado"),
   });
 
   if (loading) {
@@ -862,7 +973,11 @@ export const MisTrabajosScreen: React.FC = () => {
 
               <View style={styles.cardFooter}>
                 <Text style={styles.fecha}>
-                  {new Date(trabajo.created_at).toLocaleDateString()}
+                  {new Date(trabajo.created_at).toLocaleDateString("es-AR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })}
                 </Text>
                 <Text style={styles.monto}>Total: ${trabajo.monto_final}</Text>
               </View>
@@ -870,13 +985,15 @@ export const MisTrabajosScreen: React.FC = () => {
               {/* Botones de acción */}
               <View style={styles.actionButtons}>
                 {/* Botón de finalizar para prestadores */}
-                {trabajo.es_prestador && trabajo.estado !== "completado" && (
+                {trabajo.es_prestador && 
+                 trabajo.estado !== "completado" && 
+                 trabajo.estado !== "cancelado" && (
                   <TouchableOpacity
                     style={styles.btnFinalizar}
-                    onPress={() => handleFinalizar(trabajo.id)}
+                    onPress={() => handleFinalizar(trabajo)}
                   >
                     <Text style={styles.btnTextWhite}>
-                      Marcar como Finalizado
+                      📸 Finalizar y Agregar al Portfolio
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -992,6 +1109,74 @@ export const MisTrabajosScreen: React.FC = () => {
                   <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.btnTextWhite}>Enviar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Finalizar Trabajo con Fotos */}
+      <Modal
+        visible={showFinalizarModal}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Finalizar Trabajo</Text>
+            <Text style={styles.modalSubtitle}>
+              Sube hasta 2 fotos del trabajo finalizado para agregarlas a tu
+              portfolio (opcional)
+            </Text>
+
+            {/* Vista previa de fotos seleccionadas */}
+            <View style={styles.fotosPreviewContainer}>
+              {fotosTrabajo.map((uri, index) => (
+                <View key={index} style={styles.fotoPreviewItem}>
+                  <Image source={{ uri }} style={styles.fotoPreview} />
+                  <TouchableOpacity
+                    style={styles.removeFotoButton}
+                    onPress={() => handleRemovePhoto(index)}
+                  >
+                    <Text style={styles.removeFotoButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {fotosTrabajo.length < 2 && (
+                <TouchableOpacity
+                  style={styles.addFotoButton}
+                  onPress={handleSelectPhoto}
+                >
+                  <Text style={styles.addFotoButtonText}>+ Agregar Foto</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.btnCancel}
+                onPress={() => {
+                  setShowFinalizarModal(false);
+                  setFotosTrabajo([]);
+                  setSelectedTrabajoParaFinalizar(null);
+                }}
+                disabled={uploadingFotos}
+              >
+                <Text style={styles.btnTextCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.btnSend,
+                  uploadingFotos && { opacity: 0.7 },
+                ]}
+                onPress={handleConfirmarFinalizar}
+                disabled={uploadingFotos}
+              >
+                {uploadingFotos ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text style={styles.btnTextWhite}>Finalizar</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1315,4 +1500,57 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   btnTextCancel: { color: colors.textSecondary, fontWeight: "600" },
+  fotosPreviewContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 20,
+    justifyContent: "center",
+  },
+  fotoPreviewItem: {
+    position: "relative",
+    width: 120,
+    height: 120,
+  },
+  fotoPreview: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  removeFotoButton: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: colors.error,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  removeFotoButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  addFotoButton: {
+    width: 120,
+    height: 120,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderStyle: "dashed",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.primaryLight + "10",
+  },
+  addFotoButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

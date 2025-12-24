@@ -1,3 +1,22 @@
 {
-    "cSpell.enabled": false
+  // Configuración para abrir URLs en el navegador embebido de Cursor
+  "workbench.editor.enablePreview": false,
+  
+  // Habilita el reconocimiento de enlaces en el editor
+  "editor.links": true,
+  
+  // Permite hacer clic en enlaces directamente (Ctrl/Cmd+clic)
+  "editor.detectIndentation": true,
+  
+  // Configuración para el manejo de enlaces en la terminal
+  "terminal.integrated.enableMultiLinePasteWarning": false,
+  
+  // Habilita enlaces en la terminal
+  "terminal.integrated.enablePersistentSessions": true,
+  "java.compile.nullAnalysis.mode": "disabled",
+  
+  // Nota: Para usar el navegador embebido de Cursor:
+  // 1. Haz clic en una URL con Ctrl/Cmd+clic (o Cmd+clic en Mac)
+  // 2. O usa el comando de paleta: "Cursor: Open Browser" o "View: Show Browser"
+  // 3. El navegador embebido se puede abrir desde el menú View o con el atajo de teclado
 }

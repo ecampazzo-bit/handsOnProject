@@ -87,12 +87,53 @@ const SolicitudImage: React.FC<{
 
   const handleImageError = useCallback(
     async (error: any) => {
-      console.error(`Error cargando imagen: ${foto}`);
-      console.error("Detalles del error:", error?.nativeEvent?.error || error);
+      const errorDetails = error?.nativeEvent?.error || error?.message || error;
+      console.error(`❌ Error cargando imagen: ${foto}`);
+      console.error("Detalles del error:", errorDetails);
+      
+      // Verificar si la imagen existe y tiene contenido
+      if (foto.includes("supabase.co/storage/v1/object/public/solicitudes/")) {
+        try {
+          // Extraer el path del archivo de la URL
+          const urlParts = foto.split("/solicitudes/");
+          if (urlParts.length > 1) {
+            const filePath = urlParts[1];
+            console.log(`🔍 Verificando archivo: ${filePath}`);
+            
+            // Intentar obtener metadata del archivo
+            const pathParts = filePath.split("/");
+            const folderPath = pathParts.slice(0, -1).join("/");
+            const fileName = pathParts[pathParts.length - 1];
+            
+            const { data: files, error: listError } = await supabase.storage
+              .from("solicitudes")
+              .list(folderPath, {
+                search: fileName,
+              });
+            
+            if (!listError && files && files.length > 0) {
+              const file = files[0];
+              const fileSize = file.metadata?.size || 0;
+              console.log(`📊 Tamaño del archivo: ${fileSize} bytes`);
+              
+              if (fileSize === 0 || fileSize === "0") {
+                console.error(`❌ El archivo está vacío (0 bytes). Imagen corrupta.`);
+                setImageError(true);
+                setLoadingImage(false);
+                return;
+              }
+            } else {
+              console.warn(`⚠️ No se pudo verificar el archivo:`, listError);
+            }
+          }
+        } catch (verifyError) {
+          console.error(`Error al verificar archivo:`, verifyError);
+        }
+      }
 
       // Si tenemos una URL firmada diferente a la original y aún falla, mostrar error
       if (signedUrl && signedUrl !== foto) {
-        console.error(`La URL firmada también falló: ${signedUrl}`);
+        console.error(`❌ La URL firmada también falló: ${signedUrl}`);
         setImageError(true);
         setLoadingImage(false);
         return;
@@ -103,11 +144,11 @@ const SolicitudImage: React.FC<{
         !signedUrl &&
         foto.includes("supabase.co/storage/v1/object/public/solicitudes/")
       ) {
-        console.log("Intentando obtener URL firmada como fallback...");
+        console.log("🔄 Intentando obtener URL firmada como fallback...");
         const url = await getImageUrl(foto);
         if (url && url !== foto) {
           console.log(
-            `URL firmada obtenida como fallback: ${url.substring(0, 50)}...`
+            `✅ URL firmada obtenida como fallback: ${url.substring(0, 50)}...`
           );
           setSignedUrl(url);
           setImageError(false);

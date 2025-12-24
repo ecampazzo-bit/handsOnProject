@@ -11,5 +11,8 @@
   },
   "dependencies": {
     "expo": "^54.0.30"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.89.0"
   }
 }

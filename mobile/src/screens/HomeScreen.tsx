@@ -19,6 +19,7 @@ import { colors } from "../constants/colors";
 import { BuscarServicios } from "../components/BuscarServicios";
 import { OfrezcoServicios } from "../components/OfrezcoServicios";
 import { GestionCuenta } from "../components/GestionCuenta";
+import { PromocionesScreen } from "./PromocionesScreen";
 import { supabase } from "../services/supabaseClient";
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, "Home">;
@@ -27,9 +28,9 @@ export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"buscar" | "ofrecer" | "gestion">(
-    "buscar"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "promociones" | "buscar" | "ofrecer" | "gestion"
+  >("promociones");
   const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
@@ -129,15 +130,8 @@ export const HomeScreen: React.FC = () => {
       }
       setUser(currentUser);
 
-      // Establecer la pestaña inicial según el tipo de usuario
-      if (currentUser.tipo_usuario === "cliente") {
-        setActiveTab("buscar");
-      } else if (currentUser.tipo_usuario === "prestador") {
-        setActiveTab("ofrecer");
-      } else {
-        // ambos - empezar en "buscar servicios"
-        setActiveTab("buscar");
-      }
+      // Establecer la pestaña inicial - siempre empezar en promociones
+      setActiveTab("promociones");
 
       // Cargar contador de notificaciones después de cargar el usuario
       loadNotificationCount();
@@ -260,46 +254,11 @@ export const HomeScreen: React.FC = () => {
       </View>
 
       {/* Botones de navegación para todos los usuarios */}
-      <View style={styles.buttonsContainer}>
-        {isCliente && (
-          <>
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                activeTab === "buscar" && styles.navButtonActive,
-              ]}
-              onPress={() => setActiveTab("buscar")}
-            >
-              <Text
-                style={[
-                  styles.navButtonText,
-                  activeTab === "buscar" && styles.navButtonTextActive,
-                ]}
-              >
-                Busco Servicios
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                activeTab === "gestion" && styles.navButtonActive,
-              ]}
-              onPress={() => setActiveTab("gestion")}
-            >
-              <Text
-                style={[
-                  styles.navButtonText,
-                  activeTab === "gestion" && styles.navButtonTextActive,
-                ]}
-              >
-                Mi Perfil
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
-        {(isPrestador || isAmbos) && (
-          <>
-            {isAmbos && (
+      <View style={styles.navigationContainer}>
+        {/* Botones principales en una fila */}
+        <View style={styles.buttonsContainer}>
+          {isCliente && (
+            <>
               <TouchableOpacity
                 style={[
                   styles.navButton,
@@ -316,45 +275,104 @@ export const HomeScreen: React.FC = () => {
                   Busco Servicios
                 </Text>
               </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                activeTab === "ofrecer" && styles.navButtonActive,
-              ]}
-              onPress={() => setActiveTab("ofrecer")}
-            >
-              <Text
+              <TouchableOpacity
                 style={[
-                  styles.navButtonText,
-                  activeTab === "ofrecer" && styles.navButtonTextActive,
+                  styles.navButton,
+                  activeTab === "gestion" && styles.navButtonActive,
                 ]}
+                onPress={() => setActiveTab("gestion")}
               >
-                Ofrezco Servicios
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                activeTab === "gestion" && styles.navButtonActive,
-              ]}
-              onPress={() => setActiveTab("gestion")}
-            >
-              <Text
+                <Text
+                  style={[
+                    styles.navButtonText,
+                    activeTab === "gestion" && styles.navButtonTextActive,
+                  ]}
+                >
+                  Mi Perfil
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+          {(isPrestador || isAmbos) && (
+            <>
+              {isAmbos && (
+                <TouchableOpacity
+                  style={[
+                    styles.navButton,
+                    activeTab === "buscar" && styles.navButtonActive,
+                  ]}
+                  onPress={() => setActiveTab("buscar")}
+                >
+                  <Text
+                    style={[
+                      styles.navButtonText,
+                      activeTab === "buscar" && styles.navButtonTextActive,
+                    ]}
+                  >
+                    Busco Servicios
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
                 style={[
-                  styles.navButtonText,
-                  activeTab === "gestion" && styles.navButtonTextActive,
+                  styles.navButton,
+                  activeTab === "ofrecer" && styles.navButtonActive,
                 ]}
+                onPress={() => setActiveTab("ofrecer")}
               >
-                Gestión de Cuenta
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
+                <Text
+                  style={[
+                    styles.navButtonText,
+                    activeTab === "ofrecer" && styles.navButtonTextActive,
+                  ]}
+                >
+                  Ofrezco Servicios
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.navButton,
+                  activeTab === "gestion" && styles.navButtonActive,
+                ]}
+                onPress={() => setActiveTab("gestion")}
+              >
+                <Text
+                  style={[
+                    styles.navButtonText,
+                    activeTab === "gestion" && styles.navButtonTextActive,
+                  ]}
+                >
+                  Gestión de Cuenta
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        {/* Botón de Promociones Especiales - Debajo de los otros botones */}
+        <TouchableOpacity
+          style={[
+            styles.promocionesButton,
+            activeTab === "promociones" && styles.promocionesButtonActive,
+          ]}
+          onPress={() => setActiveTab("promociones")}
+        >
+          <Text
+            style={[
+              styles.promocionesButtonText,
+              activeTab === "promociones" && styles.promocionesButtonTextActive,
+            ]}
+          >
+            🎁 Promociones Especiales
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Contenido según tipo de usuario */}
       <View style={styles.content}>
+        {/* Promociones Especiales - Visible para todos */}
+        {activeTab === "promociones" && <PromocionesScreen />}
+
         {isCliente && (
           <>
             {activeTab === "buscar" && <BuscarServicios />}
@@ -474,18 +492,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
   },
-  buttonsContainer: {
-    flexDirection: "row",
+  navigationContainer: {
     backgroundColor: colors.white,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  buttonsContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 12,
+  },
   navButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 9, // Reducido 25% desde 12
     paddingHorizontal: 16,
     backgroundColor: colors.backgroundSecondary,
     borderRadius: 8,
@@ -493,7 +514,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    minHeight: 44,
+    minHeight: 33, // Reducido 25% desde 44 (44 * 0.75 = 33)
   },
   navButtonActive: {
     backgroundColor: colors.primary,
@@ -514,6 +535,43 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   navButtonTextActive: {
+    color: colors.white,
+    fontWeight: "700",
+  },
+  promocionesButton: {
+    alignSelf: "stretch",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 0, // Sin bordes redondeados para ocupar todo el ancho
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 0,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    minHeight: 30, // Menor alto que los otros botones (30px vs 33px de los otros)
+  },
+  promocionesButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  promocionesButtonText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  promocionesButtonTextActive: {
     color: colors.white,
     fontWeight: "700",
   },

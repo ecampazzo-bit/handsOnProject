@@ -10,6 +10,7 @@ import {
   Image,
   Linking,
   Platform,
+  Modal,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -21,6 +22,8 @@ import {
   aceptarCotizacion,
   rechazarCotizacion,
 } from "../services/solicitudService";
+import { getPortfolioByPrestador } from "../services/portfolioService";
+import { PortfolioItem } from "../services/portfolioService";
 
 // Componente para mostrar estrellas de calificación
 const StarRating: React.FC<{ rating: number; size?: number }> = ({
@@ -59,11 +62,18 @@ type MisPresupuestosRouteProp = RouteProp<
   "MisPresupuestos"
 >;
 
+interface PrestadorStats {
+  trabajosCompletados: number;
+  cotizacionesAceptadas: number;
+  cotizacionesRechazadas: number;
+}
+
 interface Cotizacion {
   id: number;
   precio_ofrecido: number;
   tiempo_estimado: number;
   descripcion_trabajo: string | null;
+  fecha_disponible: string | null;
   estado: string;
   prestador: {
     id: number;
@@ -75,6 +85,7 @@ interface Cotizacion {
       calificacion_promedio: number | null;
       cantidad_calificaciones: number;
     };
+    stats?: PrestadorStats;
   };
 }
 
@@ -98,6 +109,11 @@ export const MisPresupuestosScreen: React.FC = () => {
   const [highlightedSolicitudId, setHighlightedSolicitudId] = useState<
     number | null
   >(route.params?.solicitudId || null);
+  const [portfolioModalVisible, setPortfolioModalVisible] = useState(false);
+  const [portfolioData, setPortfolioData] = useState<{
+    items: PortfolioItem[];
+    prestadorNombre: string;
+  } | null>(null);
 
   useEffect(() => {
     loadDatos();
@@ -169,6 +185,7 @@ export const MisPresupuestosScreen: React.FC = () => {
             precio_ofrecido,
             tiempo_estimado,
             descripcion_trabajo,
+            fecha_disponible,
             estado,
             prestadores(
               id,
@@ -182,6 +199,66 @@ export const MisPresupuestosScreen: React.FC = () => {
 
       if (error) throw error;
 
+      // Función para obtener estadísticas del prestador
+      const getPrestadorStats = async (
+        prestadorId: number
+      ): Promise<PrestadorStats> => {
+        try {
+          // Trabajos completados
+          const { count: trabajosCount } = await supabase
+            .from("trabajos")
+            .select("*", { count: "exact", head: true })
+            .eq("prestador_id", prestadorId)
+            .eq("estado", "completado");
+
+          // Cotizaciones aceptadas
+          const { count: aceptadasCount } = await supabase
+            .from("cotizaciones")
+            .select("*", { count: "exact", head: true })
+            .eq("prestador_id", prestadorId)
+            .eq("estado", "aceptada");
+
+          // Cotizaciones rechazadas
+          const { count: rechazadasCount } = await supabase
+            .from("cotizaciones")
+            .select("*", { count: "exact", head: true })
+            .eq("prestador_id", prestadorId)
+            .eq("estado", "rechazada");
+
+          return {
+            trabajosCompletados: trabajosCount || 0,
+            cotizacionesAceptadas: aceptadasCount || 0,
+            cotizacionesRechazadas: rechazadasCount || 0,
+          };
+        } catch (error) {
+          console.error("Error al obtener estadísticas del prestador:", error);
+          return {
+            trabajosCompletados: 0,
+            cotizacionesAceptadas: 0,
+            cotizacionesRechazadas: 0,
+          };
+        }
+      };
+
+      // Procesar datos y obtener estadísticas para cada prestador único
+      const prestadoresIds = new Set<number>();
+      (data || []).forEach((s: any) => {
+        (s.cotizaciones || []).forEach((c: any) => {
+          if (c.prestadores?.id) {
+            prestadoresIds.add(c.prestadores.id);
+          }
+        });
+      });
+
+      // Obtener estadísticas para todos los prestadores
+      const statsMap = new Map<number, PrestadorStats>();
+      await Promise.all(
+        Array.from(prestadoresIds).map(async (prestadorId) => {
+          const stats = await getPrestadorStats(prestadorId);
+          statsMap.set(prestadorId, stats);
+        })
+      );
+
       const formattedData: Solicitud[] = (data || []).map((s: any) => ({
         id: s.id,
         servicio_nombre: s.servicios?.nombre || "Servicio",
@@ -193,10 +270,12 @@ export const MisPresupuestosScreen: React.FC = () => {
           precio_ofrecido: c.precio_ofrecido,
           tiempo_estimado: c.tiempo_estimado,
           descripcion_trabajo: c.descripcion_trabajo,
+          fecha_disponible: c.fecha_disponible,
           estado: c.estado,
           prestador: {
             id: c.prestadores.id,
             usuario: c.prestadores.users_public,
+            stats: statsMap.get(c.prestadores.id),
           },
         })),
       }));
@@ -321,6 +400,35 @@ export const MisPresupuestosScreen: React.FC = () => {
 
   const handleVerTrabajo = (solicitudId: number) => {
     navigation.navigate("MisTrabajos");
+  };
+
+  const handleVerPortfolio = async (prestadorId: number, nombre: string) => {
+    try {
+      setLoading(true);
+      const { data: portfolio, error } = await getPortfolioByPrestador(
+        prestadorId
+      );
+
+      if (error) {
+        Alert.alert("Error", "No se pudo cargar el portfolio");
+        return;
+      }
+
+      if (!portfolio || portfolio.length === 0) {
+        Alert.alert(
+          "Sin portfolio",
+          `${nombre} aún no tiene trabajos en su portfolio`
+        );
+        return;
+      }
+
+      setPortfolioData({ items: portfolio, prestadorNombre: nombre });
+      setPortfolioModalVisible(true);
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo cargar el portfolio");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -489,6 +597,49 @@ export const MisPresupuestosScreen: React.FC = () => {
                       </View>
                     </View>
 
+                    {/* Estadísticas del prestador */}
+                    {cotiz.prestador.stats && (
+                      <View style={styles.statsContainer}>
+                        <View style={styles.statItem}>
+                          <Text style={styles.statValue}>
+                            {cotiz.prestador.stats.trabajosCompletados}
+                          </Text>
+                          <Text style={styles.statLabel}>Trabajos</Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
+                          <Text style={styles.statValue}>
+                            {cotiz.prestador.stats.cotizacionesAceptadas}
+                          </Text>
+                          <Text style={styles.statLabel}>Aceptadas</Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
+                          <Text style={styles.statValue}>
+                            {cotiz.prestador.stats.cotizacionesRechazadas}
+                          </Text>
+                          <Text style={styles.statLabel}>Rechazadas</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Fecha programada */}
+                    {cotiz.fecha_disponible && (
+                      <View style={styles.fechaContainer}>
+                        <Text style={styles.fechaLabel}>📅 Fecha programada:</Text>
+                        <Text style={styles.fechaText}>
+                          {new Date(cotiz.fecha_disponible).toLocaleDateString(
+                            "es-AR",
+                            {
+                              day: "2-digit",
+                              month: "long",
+                              year: "numeric",
+                            }
+                          )}
+                        </Text>
+                      </View>
+                    )}
+
                     {cotiz.descripcion_trabajo && (
                       <Text style={styles.cotizDesc}>
                         {cotiz.descripcion_trabajo}
@@ -536,6 +687,19 @@ export const MisPresupuestosScreen: React.FC = () => {
                           >
                             <Text style={styles.btnTextWhatsApp}>
                               💬 WhatsApp
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.btnVerPortfolio}
+                            onPress={() =>
+                              handleVerPortfolio(
+                                cotiz.prestador.id,
+                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                              )
+                            }
+                          >
+                            <Text style={styles.btnTextVerPortfolio}>
+                              📸 Portfolio
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
@@ -597,6 +761,19 @@ export const MisPresupuestosScreen: React.FC = () => {
                               💬 WhatsApp
                             </Text>
                           </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.btnVerPortfolio}
+                            onPress={() =>
+                              handleVerPortfolio(
+                                cotiz.prestador.id,
+                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                              )
+                            }
+                          >
+                            <Text style={styles.btnTextVerPortfolio}>
+                              📸 Portfolio
+                            </Text>
+                          </TouchableOpacity>
                         </>
                       )}
                     </View>
@@ -607,6 +784,75 @@ export const MisPresupuestosScreen: React.FC = () => {
           ))
         )}
       </ScrollView>
+
+      {/* Modal del Portfolio */}
+      <Modal
+        visible={portfolioModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setPortfolioModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              Portfolio de {portfolioData?.prestadorNombre}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setPortfolioModalVisible(false)}
+              style={styles.closeButton}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalContent}>
+            {portfolioData?.items.map((item) => (
+              <View key={item.id} style={styles.portfolioItem}>
+                {item.fotos_urls && item.fotos_urls.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.portfolioImages}
+                  >
+                    {item.fotos_urls.map((url, idx) => (
+                      <Image
+                        key={idx}
+                        source={{ uri: url }}
+                        style={styles.portfolioImage}
+                      />
+                    ))}
+                  </ScrollView>
+                )}
+                <Text style={styles.portfolioTitle}>{item.titulo}</Text>
+                {item.servicio && (
+                  <Text style={styles.portfolioService}>
+                    {item.servicio.nombre}
+                  </Text>
+                )}
+                {item.descripcion && (
+                  <Text style={styles.portfolioDescription}>
+                    {item.descripcion}
+                  </Text>
+                )}
+                {item.fecha_trabajo && (
+                  <Text style={styles.portfolioDate}>
+                    📅{" "}
+                    {new Date(item.fecha_trabajo).toLocaleDateString("es-AR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </Text>
+                )}
+              </View>
+            ))}
+            {(!portfolioData?.items || portfolioData.items.length === 0) && (
+              <Text style={styles.emptyPortfolio}>
+                No hay trabajos en el portfolio
+              </Text>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -725,6 +971,57 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   precioText: { color: colors.success, fontWeight: "600", fontSize: 13 },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: colors.backgroundSecondary,
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 8,
+  },
+  fechaContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primaryLight + "20",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  fechaLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
+    marginRight: 8,
+  },
+  fechaText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: "600",
+  },
   cotizDesc: { fontSize: 14, color: colors.textSecondary, marginBottom: 15 },
   actions: {
     flexDirection: "row",
@@ -777,6 +1074,17 @@ const styles = StyleSheet.create({
     minWidth: "30%",
     height: 32,
   },
+  btnVerPortfolio: {
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 5,
+    backgroundColor: colors.secondary,
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    minWidth: "30%",
+    height: 32,
+  },
   btnVerTrabajo: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -803,6 +1111,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   btnTextWhatsApp: {
+    color: colors.white,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  btnTextVerPortfolio: {
     color: colors.white,
     fontWeight: "600",
     fontSize: 12,
@@ -858,5 +1171,84 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontWeight: "600",
     fontSize: 14,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.text,
+    flex: 1,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    fontSize: 24,
+    color: colors.textSecondary,
+    fontWeight: "bold",
+  },
+  modalContent: {
+    flex: 1,
+    padding: 16,
+  },
+  portfolioItem: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  portfolioImages: {
+    marginBottom: 12,
+  },
+  portfolioImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  portfolioTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 4,
+  },
+  portfolioService: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  portfolioDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  portfolioDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: "italic",
+  },
+  emptyPortfolio: {
+    textAlign: "center",
+    marginTop: 40,
+    color: colors.textSecondary,
+    fontSize: 16,
   },
 });

@@ -1,5 +1,7 @@
 import { supabase } from "./supabaseClient";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import * as ImageManipulator from "expo-image-manipulator";
 
 export interface ProfilePictureResult {
   url: string | null;
@@ -54,12 +56,116 @@ export const takePhotoWithCamera =
   };
 
 /**
- * Convierte una URI de imagen a un objeto File/Blob para subir
+ * Convierte una imagen a formato JPG
  */
-const uriToBlob = async (uri: string): Promise<Blob> => {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  return blob;
+const convertToJPG = async (uri: string): Promise<string> => {
+  try {
+    const manipResult = await ImageManipulator.manipulateAsync(uri, [], {
+      compress: 0.8,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+    return manipResult.uri;
+  } catch (error) {
+    console.error("Error al convertir imagen a JPG:", error);
+    return uri;
+  }
+};
+
+/**
+ * Convierte una URI de imagen a ArrayBuffer para React Native
+ */
+const uriToArrayBuffer = async (uri: string): Promise<ArrayBuffer> => {
+  try {
+    console.log(`📤 Leyendo archivo de avatar: ${uri.substring(0, 50)}...`);
+
+    const fileInfo = await FileSystem.getInfoAsync(uri);
+    if (!fileInfo.exists) {
+      throw new Error(`El archivo no existe: ${uri}`);
+    }
+
+    console.log(`📁 Archivo encontrado: ${fileInfo.size} bytes`);
+
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: "base64" as any,
+    });
+
+    if (!base64 || base64.length === 0) {
+      throw new Error(`El archivo está vacío o no se pudo leer`);
+    }
+
+    console.log(`✅ Archivo leído: ${base64.length} caracteres base64`);
+
+    // Convertir base64 a ArrayBuffer
+    const binaryString =
+      typeof atob !== "undefined"
+        ? atob(base64)
+        : (() => {
+            const chars =
+              "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            let output = "";
+            let i = 0;
+            const cleanBase64 = base64.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+            while (i < cleanBase64.length) {
+              const enc1 = chars.indexOf(cleanBase64.charAt(i++));
+              const enc2 = chars.indexOf(cleanBase64.charAt(i++));
+              const enc3 = chars.indexOf(cleanBase64.charAt(i++));
+              const enc4 = chars.indexOf(cleanBase64.charAt(i++));
+              const chr1 = (enc1 << 2) | (enc2 >> 4);
+              const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+              const chr3 = ((enc3 & 3) << 6) | enc4;
+              output += String.fromCharCode(chr1);
+              if (enc3 !== 64) output += String.fromCharCode(chr2);
+              if (enc4 !== 64) output += String.fromCharCode(chr3);
+            }
+            return output;
+          })();
+
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    console.log(`✅ ArrayBuffer creado: ${bytes.buffer.byteLength} bytes`);
+    return bytes.buffer;
+  } catch (error) {
+    console.error(`❌ Error al leer archivo de avatar:`, error);
+    if (error instanceof Error) {
+      console.error(`Mensaje: ${error.message}`);
+    }
+    throw error;
+  }
+};
+
+/**
+ * Espera y verifica que la sesión esté establecida
+ */
+const ensureSession = async (
+  maxRetries = 10,
+  delayMs = 500
+): Promise<boolean> => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+      if (session && !error) {
+        console.log(`✅ Sesión establecida después de ${i + 1} intentos`);
+        return true;
+      }
+      if (i < maxRetries - 1) {
+        console.log(`⏳ Esperando sesión... (intento ${i + 1}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    } catch (error) {
+      console.error("Error al verificar sesión:", error);
+      if (i < maxRetries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  console.warn("⚠️ No se pudo establecer sesión después de múltiples intentos");
+  return false;
 };
 
 /**
@@ -67,27 +173,74 @@ const uriToBlob = async (uri: string): Promise<Blob> => {
  */
 export const uploadProfilePicture = async (
   userId: string,
-  imageUri: string
+  imageUri: string,
+  waitForSession: boolean = false
 ): Promise<ProfilePictureResult> => {
   try {
-    // Convertir URI a Blob
-    const blob = await uriToBlob(imageUri);
+    // Si waitForSession es true, esperar a que la sesión esté establecida
+    if (waitForSession) {
+      console.log("⏳ Esperando a que la sesión esté establecida...");
+      const sessionReady = await ensureSession();
+      if (!sessionReady) {
+        console.warn(
+          "⚠️ Continuando sin sesión establecida, puede fallar por RLS"
+        );
+      }
+    }
 
-    // Determinar extensión del archivo
-    const fileExt = imageUri.split(".").pop()?.toLowerCase() || "jpg";
-    const fileName = `${userId}/avatar.${fileExt}`;
+    // Verificar sesión actual
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn("⚠️ No hay sesión activa, la subida puede fallar por RLS");
+    } else {
+      console.log("✅ Sesión activa encontrada:", session.user.id);
+    }
 
-    // Subir a Storage
+    // Convertir a JPG primero
+    console.log("🔄 Convirtiendo avatar a JPG...");
+    const jpgUri = await convertToJPG(imageUri);
+    console.log("✅ Avatar convertido a JPG");
+
+    // Convertir URI a ArrayBuffer
+    const arrayBuffer = await uriToArrayBuffer(jpgUri);
+
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      throw new Error("El archivo está vacío");
+    }
+
+    console.log(`✅ ArrayBuffer validado: ${arrayBuffer.byteLength} bytes`);
+
+    // Siempre usar .jpg ya que convertimos a JPEG
+    const fileName = `${userId}/avatar.jpg`;
+
+    console.log(`📤 Subiendo avatar a: ${fileName}`);
+
+    // Subir a Storage usando ArrayBuffer
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(fileName, blob, {
+      .upload(fileName, arrayBuffer, {
         cacheControl: "3600",
         upsert: true,
-        contentType: `image/${fileExt === "jpg" ? "jpeg" : fileExt}`,
+        contentType: "image/jpeg",
       });
 
     if (uploadError) {
       console.error("Error al subir imagen:", uploadError);
+
+      // Si el error es de RLS y no hay sesión, intentar esperar y reintentar
+      if (
+        uploadError.message?.includes("row-level security") &&
+        !session &&
+        !waitForSession
+      ) {
+        console.log(
+          "🔄 Error de RLS detectado, reintentando con espera de sesión..."
+        );
+        return uploadProfilePicture(userId, imageUri, true);
+      }
+
       return {
         url: null,
         error: { message: "Error al subir la imagen: " + uploadError.message },

@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { RootStackParamList } from "../types/navigation";
 import { colors } from "../constants/colors";
 import { createCotizacion } from "../services/solicitudService";
@@ -35,6 +36,8 @@ export const ResponderSolicitudScreen: React.FC = () => {
   const [precio, setPrecio] = useState("");
   const [tiempo, setTiempo] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [fechaProgramada, setFechaProgramada] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -80,12 +83,24 @@ export const ResponderSolicitudScreen: React.FC = () => {
 
       if (!prestador) throw new Error("No se encontró perfil de prestador");
 
+      // Formatear fecha en formato YYYY-MM-DD para la base de datos
+      // Usar métodos locales para evitar problemas de zona horaria
+      const fechaFormateada = fechaProgramada
+        ? `${fechaProgramada.getFullYear()}-${String(
+            fechaProgramada.getMonth() + 1
+          ).padStart(2, "0")}-${String(fechaProgramada.getDate()).padStart(
+            2,
+            "0"
+          )}`
+        : undefined;
+
       const { error } = await createCotizacion({
         solicitudId,
         prestadorId: prestador.id,
         precio: precioNum,
         tiempoEstimado: tiempoNum,
         descripcion,
+        fechaProgramada: fechaFormateada,
       });
 
       if (error) throw error;
@@ -137,6 +152,72 @@ export const ResponderSolicitudScreen: React.FC = () => {
             value={tiempo}
             onChangeText={setTiempo}
           />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Fecha Programada para el Trabajo (Opcional)</Text>
+          <TouchableOpacity
+            style={styles.input}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text
+              style={
+                fechaProgramada
+                  ? styles.dateText
+                  : styles.datePlaceholder
+              }
+            >
+              {fechaProgramada
+                ? fechaProgramada.toLocaleDateString("es-AR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })
+                : "Seleccionar fecha"}
+            </Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={fechaProgramada || new Date()}
+              mode="date"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              minimumDate={new Date()}
+              onChange={(event, selectedDate) => {
+                if (Platform.OS === "android") {
+                  setShowDatePicker(false);
+                  if (event.type === "set" && selectedDate) {
+                    setFechaProgramada(selectedDate);
+                  }
+                } else {
+                  // iOS
+                  if (selectedDate) {
+                    setFechaProgramada(selectedDate);
+                  }
+                }
+              }}
+              locale="es-AR"
+            />
+          )}
+          {Platform.OS === "ios" && showDatePicker && (
+            <View style={styles.iosPickerButtons}>
+              <TouchableOpacity
+                style={[styles.pickerButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowDatePicker(false);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pickerButton, styles.confirmButton]}
+                onPress={() => {
+                  setShowDatePicker(false);
+                }}
+              >
+                <Text style={styles.confirmButtonText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <View style={styles.formGroup}>
@@ -225,6 +306,42 @@ const styles = StyleSheet.create({
   textArea: {
     height: 100,
     textAlignVertical: "top",
+  },
+  dateText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  datePlaceholder: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  iosPickerButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    gap: 10,
+  },
+  pickerButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  confirmButton: {
+    backgroundColor: colors.primary,
+  },
+  cancelButton: {
+    backgroundColor: colors.border,
+  },
+  confirmButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  cancelButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "600",
   },
   footer: {
     padding: 20,

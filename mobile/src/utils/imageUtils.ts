@@ -2,7 +2,8 @@ import { supabase } from "../services/supabaseClient";
 
 /**
  * Obtiene una URL válida para una imagen del bucket de solicitudes
- * Intenta primero con URL pública, si falla usa URL firmada
+ * Como el bucket es público, primero intenta usar la URL pública directamente
+ * Solo usa URL firmada si la pública falla
  */
 export const getImageUrl = async (url: string): Promise<string | null> => {
   try {
@@ -10,81 +11,19 @@ export const getImageUrl = async (url: string): Promise<string | null> => {
       return null;
     }
 
-    // Si la URL ya es una URL completa de Supabase Storage, intentar obtener URL firmada
-    if (url.includes("supabase.co/storage/v1/object/public/solicitudes/")) {
-      // Extraer la ruta del archivo desde la URL
-      const urlParts = url.split("/solicitudes/");
-      if (urlParts.length > 1) {
-        let filePath = urlParts[1];
-
-        // Limpiar cualquier parámetro de query o fragmento de la URL
-        filePath = filePath.split("?")[0].split("#")[0];
-
-        console.log(`Intentando obtener URL firmada para: ${filePath}`);
-        console.log(`URL original completa: ${url}`);
-
-        // Primero verificar que el archivo existe
-        const pathParts = filePath.split("/");
-        const fileName = pathParts[pathParts.length - 1];
-        const folderPath = pathParts.slice(0, -1).join("/");
-
-        console.log(`Verificando existencia del archivo: ${filePath}`);
-        const { data: listData, error: listError } = await supabase.storage
-          .from("solicitudes")
-          .list(folderPath, { limit: 100 });
-
-        if (listError) {
-          console.error("Error al listar archivos:", listError);
-        } else {
-          const fileExists = listData?.some((f) => f.name === fileName);
-          console.log(`¿Archivo existe? ${fileExists ? "Sí" : "No"}`);
-          if (!fileExists) {
-            console.error(
-              `⚠️ El archivo ${fileName} no existe en ${folderPath}`
-            );
-            console.log(
-              "Archivos disponibles en la carpeta:",
-              listData?.map((f) => f.name)
-            );
-            return null;
-          }
-        }
-
-        // Intentar obtener URL firmada (válida por 1 hora)
-        const { data, error } = await supabase.storage
-          .from("solicitudes")
-          .createSignedUrl(filePath, 3600);
-
-        if (!error && data?.signedUrl) {
-          console.log(`✅ URL firmada obtenida exitosamente para: ${filePath}`);
-          console.log(
-            `URL firmada (primeros 100 chars): ${data.signedUrl.substring(
-              0,
-              100
-            )}...`
-          );
-          return data.signedUrl;
-        } else {
-          console.error(
-            `❌ Error al obtener URL firmada para ${filePath}:`,
-            error
-          );
-          if (error) {
-            console.error("Código de error:", error.message);
-            console.error(
-              "Detalles completos:",
-              JSON.stringify(error, null, 2)
-            );
-          }
-
-          // Retornar null para que se use la URL pública original
-          return null;
-        }
-      }
-    }
-
-    // Si es una URL pública válida, retornarla directamente
+    // Si es una URL pública válida, retornarla directamente primero
+    // El bucket "solicitudes" está configurado como público, así que las URLs públicas deberían funcionar
     if (url.startsWith("http://") || url.startsWith("https://")) {
+      // Si es una URL pública de Supabase Storage para el bucket "solicitudes",
+      // intentar usarla directamente primero (el bucket es público)
+      if (url.includes("supabase.co/storage/v1/object/public/solicitudes/")) {
+        console.log(
+          `📷 Usando URL pública directamente: ${url.substring(0, 100)}...`
+        );
+        return url;
+      }
+
+      // Para otras URLs públicas, retornarlas directamente
       return url;
     }
 

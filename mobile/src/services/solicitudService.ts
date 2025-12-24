@@ -1,7 +1,11 @@
 import { supabase } from "./supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
+// Usar la API legacy de expo-file-system porque readAsStringAsync de la API nueva está deprecado
+// y lanza error en lugar de solo warning en Expo 54.
+import * as FileSystem from "expo-file-system/legacy";
 import { requestImagePermissions } from "./profileService";
+import { createPortfolioItem } from "./portfolioService";
 
 /**
  * Convierte una imagen a formato JPG compatible con React Native
@@ -26,12 +30,77 @@ const convertToJPG = async (uri: string): Promise<string> => {
 };
 
 /**
- * Convierte una URI de imagen a un objeto File/Blob para subir
+ * Convierte una URI de imagen a ArrayBuffer para React Native
+ * Usa expo-file-system para leer el archivo correctamente en React Native
+ * Retorna ArrayBuffer que es compatible con supabase-js en React Native
  */
-const uriToBlob = async (uri: string): Promise<Blob> => {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  return blob;
+const uriToArrayBuffer = async (uri: string): Promise<ArrayBuffer> => {
+  try {
+    console.log(`📤 Leyendo archivo desde URI: ${uri.substring(0, 50)}...`);
+
+    // Obtener información del archivo
+    const fileInfo = await FileSystem.getInfoAsync(uri);
+
+    if (!fileInfo.exists) {
+      throw new Error(`El archivo no existe: ${uri}`);
+    }
+
+    console.log(`📁 Archivo encontrado: ${fileInfo.size} bytes`);
+
+    // Leer el archivo como base64
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: "base64" as any,
+    });
+
+    if (!base64 || base64.length === 0) {
+      throw new Error(`El archivo está vacío o no se pudo leer`);
+    }
+
+    console.log(`✅ Archivo leído: ${base64.length} caracteres base64`);
+
+    // Convertir base64 a ArrayBuffer
+    // Usar atob si está disponible, sino hacerlo manualmente
+    const binaryString =
+      typeof atob !== "undefined"
+        ? atob(base64)
+        : (() => {
+            const chars =
+              "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            let output = "";
+            let i = 0;
+            const cleanBase64 = base64.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+            while (i < cleanBase64.length) {
+              const enc1 = chars.indexOf(cleanBase64.charAt(i++));
+              const enc2 = chars.indexOf(cleanBase64.charAt(i++));
+              const enc3 = chars.indexOf(cleanBase64.charAt(i++));
+              const enc4 = chars.indexOf(cleanBase64.charAt(i++));
+              const chr1 = (enc1 << 2) | (enc2 >> 4);
+              const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+              const chr3 = ((enc3 & 3) << 6) | enc4;
+              output += String.fromCharCode(chr1);
+              if (enc3 !== 64) output += String.fromCharCode(chr2);
+              if (enc4 !== 64) output += String.fromCharCode(chr3);
+            }
+            return output;
+          })();
+
+    // Convertir string binario a ArrayBuffer
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    console.log(`✅ ArrayBuffer creado: ${bytes.buffer.byteLength} bytes`);
+
+    return bytes.buffer;
+  } catch (error) {
+    console.error(`❌ Error al leer archivo:`, error);
+    console.error(`URI problemática: ${uri}`);
+    if (error instanceof Error) {
+      console.error(`Mensaje de error:`, error.message);
+    }
+    throw error;
+  }
 };
 
 /**
@@ -47,54 +116,120 @@ export const uploadSolicitudImages = async (
     for (let i = 0; i < imageUris.length; i++) {
       const uri = imageUris[i];
 
-      // Asegurar que la imagen esté en formato JPG antes de subir
-      const jpgUri = await convertToJPG(uri);
-      const blob = await uriToBlob(jpgUri);
-
-      // Siempre usar extensión .jpg ya que convertimos todas las imágenes
-      const timestamp = Date.now();
-
-      // Obtener el ID del usuario para la ruta (requerido por políticas RLS)
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuario no autenticado");
-
-      // Nueva ruta: solicitudes/{user_id}/{solicitud_id}/{timestamp}_{i}.jpg
-      const fileName = `${user.id}/${solicitudId}/${timestamp}_${i}.jpg`;
-
-      // Subir a Storage (usando el nuevo bucket 'solicitudes')
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("solicitudes")
-        .upload(fileName, blob, {
-          cacheControl: "3600",
-          contentType: "image/jpeg", // Siempre JPEG
-        });
-
-      if (uploadError) {
-        console.error(`Error al subir imagen ${i}:`, uploadError);
-        console.error(
-          "Detalles del error:",
-          JSON.stringify(uploadError, null, 2)
+      try {
+        // Asegurar que la imagen esté en formato JPG antes de subir
+        console.log(`🔄 Procesando imagen ${i + 1}/${imageUris.length}...`);
+        const jpgUri = await convertToJPG(uri);
+        console.log(
+          `✅ Imagen convertida a JPG: ${jpgUri.substring(0, 50)}...`
         );
+
+        // Leer el archivo como ArrayBuffer
+        const arrayBuffer = await uriToArrayBuffer(jpgUri);
+
+        // Validar que el ArrayBuffer tenga contenido
+        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+          console.error(
+            `❌ ArrayBuffer vacío para imagen ${i + 1}, saltando...`
+          );
+          console.error(`   URI de la imagen: ${jpgUri.substring(0, 80)}...`);
+          continue;
+        }
+
+        console.log(
+          `✅ ArrayBuffer validado antes de subir: ${arrayBuffer.byteLength} bytes`
+        );
+
+        // Siempre usar extensión .jpg ya que convertimos todas las imágenes
+        const timestamp = Date.now();
+
+        // Obtener el ID del usuario para la ruta (requerido por políticas RLS)
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) throw new Error("Usuario no autenticado");
+
+        // Nueva ruta: solicitudes/{user_id}/{solicitud_id}/{timestamp}_{i}.jpg
+        const fileName = `${user.id}/${solicitudId}/${timestamp}_${i}.jpg`;
+
+        console.log(
+          `📤 Subiendo imagen ${i + 1} a: ${fileName} (${
+            arrayBuffer.byteLength
+          } bytes)`
+        );
+
+        // Subir a Storage usando ArrayBuffer directamente
+        // supabase-js acepta ArrayBuffer en React Native
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("solicitudes")
+          .upload(fileName, arrayBuffer, {
+            cacheControl: "3600",
+            contentType: "image/jpeg", // Siempre JPEG
+            upsert: false, // No sobrescribir si existe
+          });
+
+        if (uploadError) {
+          console.error(`❌ Error al subir imagen ${i + 1}:`, uploadError);
+          console.error(
+            "Detalles del error:",
+            JSON.stringify(uploadError, null, 2)
+          );
+          continue;
+        }
+
+        if (!uploadData) {
+          console.error(
+            `❌ No se recibió data después de subir imagen ${i + 1}`
+          );
+          continue;
+        }
+
+        console.log(`✅ Imagen ${i + 1} subida exitosamente: ${fileName}`);
+
+        // Verificar que el archivo se subió correctamente consultando su metadata
+        const { data: fileInfo, error: infoError } = await supabase.storage
+          .from("solicitudes")
+          .list(`${user.id}/${solicitudId}`, {
+            search: `${timestamp}_${i}.jpg`,
+          });
+
+        if (infoError) {
+          console.warn(`⚠️ No se pudo verificar el archivo subido:`, infoError);
+        } else if (fileInfo && fileInfo.length > 0) {
+          const fileData = fileInfo[0];
+          console.log(
+            `✅ Archivo verificado: ${fileData.name} (${
+              fileData.metadata?.size || "tamaño desconocido"
+            } bytes)`
+          );
+
+          if (
+            fileData.metadata?.size === "0" ||
+            fileData.metadata?.size === 0
+          ) {
+            console.error(`❌ ADVERTENCIA: El archivo subido tiene 0 bytes!`);
+            // Intentar eliminar el archivo corrupto
+            await supabase.storage.from("solicitudes").remove([fileName]);
+            continue;
+          }
+        }
+
+        // Obtener URL pública
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("solicitudes").getPublicUrl(fileName);
+
+        console.log(
+          `✅ URL pública generada para imagen ${i + 1}: ${publicUrl}`
+        );
+
+        uploadedUrls.push(publicUrl);
+      } catch (error) {
+        console.error(`❌ Error procesando imagen ${i + 1}:`, error);
+        console.error(`URI de la imagen: ${uri.substring(0, 50)}...`);
+        // Continuar con la siguiente imagen en lugar de fallar completamente
         continue;
       }
-
-      if (!uploadData) {
-        console.error(`No se recibió data después de subir imagen ${i}`);
-        continue;
-      }
-
-      console.log(`✅ Imagen ${i} subida exitosamente: ${fileName}`);
-
-      // Obtener URL pública
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("solicitudes").getPublicUrl(fileName);
-
-      console.log(`URL pública generada para imagen ${i}: ${publicUrl}`);
-
-      uploadedUrls.push(publicUrl);
     }
 
     return {
@@ -359,6 +494,7 @@ export const createCotizacion = async (params: {
   precio: number;
   tiempoEstimado: number;
   descripcion: string;
+  fechaProgramada?: string; // Fecha en formato YYYY-MM-DD
 }): Promise<{ error: { message: string } | null }> => {
   try {
     console.log("Iniciando RPC crear_cotizacion_v1 con:", params);
@@ -385,6 +521,44 @@ export const createCotizacion = async (params: {
     }
 
     console.log("Cotización creada exitosamente via RPC:", data);
+
+    // Si se proporciona fecha programada, actualizar la cotización
+    if (params.fechaProgramada && data && data.cotizacion_id) {
+      const { error: updateError } = await supabase
+        .from("cotizaciones")
+        .update({ fecha_disponible: params.fechaProgramada })
+        .eq("id", data.cotizacion_id);
+
+      if (updateError) {
+        console.error("Error al actualizar fecha programada:", updateError);
+        // No lanzar error, solo loguear, ya que la cotización ya se creó
+      } else {
+        console.log("Fecha programada actualizada exitosamente");
+      }
+    } else if (params.fechaProgramada) {
+      // Si no se obtuvo el ID de la cotización del RPC, intentar buscarlo
+      const { data: cotizacionesData, error: findError } = await supabase
+        .from("cotizaciones")
+        .select("id")
+        .eq("solicitud_id", params.solicitudId)
+        .eq("prestador_id", params.prestadorId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!findError && cotizacionesData) {
+        const { error: updateError } = await supabase
+          .from("cotizaciones")
+          .update({ fecha_disponible: params.fechaProgramada })
+          .eq("id", cotizacionesData.id);
+
+        if (updateError) {
+          console.error("Error al actualizar fecha programada:", updateError);
+        } else {
+          console.log("Fecha programada actualizada exitosamente");
+        }
+      }
+    }
 
     // Obtener información de la solicitud para crear la notificación al cliente
     const { data: solicitudData, error: solicitudError } = await supabase
@@ -843,7 +1017,11 @@ export const rechazarCotizacion = async (
  * Marca un trabajo como finalizado
  */
 export const finalizarTrabajo = async (
-  trabajoId: number
+  trabajoId: number,
+  fotosPortfolio?: string[],
+  servicioId?: number,
+  prestadorId?: number,
+  servicioNombre?: string
 ): Promise<{ error: { message: string } | null }> => {
   try {
     const { data: trabajo, error: fetchError } = await supabase
@@ -909,6 +1087,38 @@ export const finalizarTrabajo = async (
         referencia_tipo: "trabajo",
         leida: false,
       });
+
+      // Si hay fotos del portfolio, crear un item en el portfolio
+      if (
+        fotosPortfolio &&
+        fotosPortfolio.length > 0 &&
+        servicioId &&
+        prestadorId
+      ) {
+        try {
+          const nombreServicioFinal = servicioNombre || "servicio";
+          await createPortfolioItem({
+            prestadorId: prestadorId,
+            servicioId: servicioId,
+            titulo: `${nombreServicioFinal} - ${new Date().toLocaleDateString("es-AR")}`,
+            descripcion: `Trabajo finalizado el ${new Date().toLocaleDateString("es-AR", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}`,
+            fotosUrls: fotosPortfolio,
+            fechaTrabajo: new Date().toISOString().split("T")[0],
+            destacado: false,
+          });
+          console.log("✅ Item agregado al portfolio");
+        } catch (portfolioError) {
+          console.error(
+            "Error al agregar item al portfolio:",
+            portfolioError
+          );
+          // No lanzar error, ya que el trabajo se finalizó correctamente
+        }
+      }
     }
 
     return { error: null };

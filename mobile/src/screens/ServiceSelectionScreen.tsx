@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,12 +7,13 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { saveUserServices, getCurrentUserId } from "../services/authService";
 import { supabase } from "../services/supabaseClient";
-import { SERVICIOS, Service, searchServices } from "../constants/services";
 import { ServiceCard } from "../components/ServiceCard";
 import { Button } from "../components/Button";
 import { colors } from "../constants/colors";
@@ -23,26 +24,38 @@ type ServiceSelectionScreenNavigationProp = StackNavigationProp<
   "ServiceSelection"
 >;
 
+interface Servicio {
+  id: number;
+  nombre: string;
+  categoria_id: number;
+  categoria_nombre?: string;
+}
+
+interface Categoria {
+  id: number;
+  nombre: string;
+  url: string | null;
+}
+
 export const ServiceSelectionScreen: React.FC = (props: any) => {
   const route = props.route || { params: { userId: undefined } };
   const paramUserId = route.params?.userId;
   const navigation = useNavigation<ServiceSelectionScreenNavigationProp>();
-  const [selectedServices, setSelectedServices] = useState<Set<string>>(
+  const [selectedServices, setSelectedServices] = useState<Set<number>>(
     new Set()
   );
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(Object.keys(SERVICIOS))
-  );
+  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [selectedCategoria, setSelectedCategoria] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   // Verificar sesión al montar el componente
-  // Durante el registro, el usuario puede no estar en la tabla users aún, así que solo verificamos la sesión de Auth
   React.useEffect(() => {
     const checkAndRestoreSession = async () => {
       console.log("=== Verificando sesión en ServiceSelectionScreen ===");
       try {
-        // Intentar obtener la sesión actual
         const {
           data: { session },
           error: sessionError,
@@ -50,7 +63,6 @@ export const ServiceSelectionScreen: React.FC = (props: any) => {
 
         if (sessionError || !session) {
           console.warn("No hay sesión activa, intentando restaurar...");
-          // Intentar usar getCurrentUserId que restaurará la sesión
           const userId = await getCurrentUserId();
           if (userId) {
             console.log("Sesión restaurada exitosamente:", userId);
@@ -71,17 +83,72 @@ export const ServiceSelectionScreen: React.FC = (props: any) => {
     checkAndRestoreSession();
   }, []);
 
-  const toggleCategory = (category: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(category)) {
-      newExpanded.delete(category);
-    } else {
-      newExpanded.add(category);
+  useEffect(() => {
+    loadCategorias();
+    loadServicios();
+  }, []);
+
+  const loadCategorias = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("categorias")
+        .select("id, nombre, url")
+        .order("nombre");
+
+      if (error) {
+        console.error("Error al cargar categorías:", error);
+        return;
+      }
+
+      setCategorias(data || []);
+    } catch (error) {
+      console.error("Error inesperado al cargar categorías:", error);
     }
-    setExpandedCategories(newExpanded);
   };
 
-  const toggleService = (serviceId: string) => {
+  const loadServicios = async () => {
+    try {
+      setLoadingData(true);
+      const { data, error } = await supabase
+        .from("servicios")
+        .select("id, nombre, categoria_id, categorias(nombre)")
+        .order("nombre");
+
+      if (error) {
+        console.error("Error al cargar servicios:", error);
+        Alert.alert("Error", "No se pudieron cargar los servicios");
+        return;
+      }
+
+      const serviciosWithCategory = (data || []).map((servicio: any) => ({
+        id: servicio.id,
+        nombre: servicio.nombre,
+        categoria_id: servicio.categoria_id,
+        categoria_nombre: servicio.categorias?.nombre,
+      }));
+
+      setServicios(serviciosWithCategory);
+    } catch (error) {
+      console.error("Error inesperado al cargar servicios:", error);
+      Alert.alert("Error", "Ocurrió un error al cargar los servicios");
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const filteredServicios = useMemo(() => {
+    return servicios.filter((servicio) => {
+      const matchesSearch = servicio.nombre
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const matchesCategoria =
+        selectedCategoria === null ||
+        servicio.categoria_id === selectedCategoria;
+      return matchesSearch && matchesCategoria;
+    });
+  }, [servicios, searchQuery, selectedCategoria]);
+
+  const toggleService = (serviceId: number) => {
     const newSelected = new Set(selectedServices);
     if (newSelected.has(serviceId)) {
       newSelected.delete(serviceId);
@@ -89,30 +156,6 @@ export const ServiceSelectionScreen: React.FC = (props: any) => {
       newSelected.add(serviceId);
     }
     setSelectedServices(newSelected);
-  };
-
-  const filteredServices = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return SERVICIOS;
-    }
-
-    const searchResults = searchServices(searchQuery);
-    const filtered: Record<string, string[]> = {};
-
-    searchResults.forEach((service) => {
-      if (!filtered[service.category]) {
-        filtered[service.category] = [];
-      }
-      if (!filtered[service.category].includes(service.name)) {
-        filtered[service.category].push(service.name);
-      }
-    });
-
-    return filtered;
-  }, [searchQuery]);
-
-  const getServiceId = (category: string, serviceName: string): string => {
-    return `${category}-${serviceName}`;
   };
 
   const handleSave = async () => {
@@ -123,7 +166,6 @@ export const ServiceSelectionScreen: React.FC = (props: any) => {
 
     setLoading(true);
     try {
-      // Usar userId del parámetro de navegación, con fallback a getCurrentUserId
       const finalUserId = paramUserId || (await getCurrentUserId());
 
       if (!finalUserId) {
@@ -140,15 +182,17 @@ export const ServiceSelectionScreen: React.FC = (props: any) => {
 
       console.log("UserId obtenido:", finalUserId);
 
+      // Obtener los servicios seleccionados con sus categorías
       const servicesToSave: Array<{ nombre: string; categoria: string }> = [];
 
       selectedServices.forEach((serviceId) => {
-        const [category, ...serviceNameParts] = serviceId.split("-");
-        const serviceName = serviceNameParts.join("-");
-        servicesToSave.push({
-          nombre: serviceName,
-          categoria: category,
-        });
+        const servicio = servicios.find((s) => s.id === serviceId);
+        if (servicio) {
+          servicesToSave.push({
+            nombre: servicio.nombre,
+            categoria: servicio.categoria_nombre || "Sin categoría",
+          });
+        }
       });
 
       console.log("Guardando servicios para userId:", finalUserId);
@@ -166,7 +210,6 @@ export const ServiceSelectionScreen: React.FC = (props: any) => {
         {
           text: "OK",
           onPress: () => {
-            // Navegar a HomeScreen después de guardar servicios
             navigation.navigate("Home");
           },
         },
@@ -200,40 +243,120 @@ export const ServiceSelectionScreen: React.FC = (props: any) => {
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {Object.keys(filteredServices).map((category) => (
-          <View key={category} style={styles.categoryContainer}>
+      {/* Carrusel de Categorías */}
+      {categorias.length > 0 && (
+        <View style={styles.categoriasCarouselContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoriasCarousel}
+            contentContainerStyle={styles.categoriasCarouselContent}
+          >
             <TouchableOpacity
-              style={styles.categoryHeader}
-              onPress={() => toggleCategory(category)}
+              style={[
+                styles.categoriaCard,
+                selectedCategoria === null && styles.categoriaCardSelected,
+              ]}
+              onPress={() => setSelectedCategoria(null)}
+              activeOpacity={0.7}
             >
-              <Text style={styles.categoryTitle}>{category}</Text>
-              <Text style={styles.expandIcon}>
-                {expandedCategories.has(category) ? "▼" : "▶"}
+              <View
+                style={[
+                  styles.categoriaIcon,
+                  selectedCategoria === null && styles.categoriaIconSelected,
+                ]}
+              >
+                <Text style={styles.categoriaIconText}>📂</Text>
+              </View>
+              <Text
+                style={[
+                  styles.categoriaName,
+                  selectedCategoria === null && styles.categoriaNameSelected,
+                ]}
+              >
+                Todas
               </Text>
             </TouchableOpacity>
+            {categorias.map((categoria) => (
+              <TouchableOpacity
+                key={categoria.id}
+                style={[
+                  styles.categoriaCard,
+                  selectedCategoria === categoria.id &&
+                    styles.categoriaCardSelected,
+                ]}
+                onPress={() => setSelectedCategoria(categoria.id)}
+                activeOpacity={0.7}
+              >
+                {categoria.url ? (
+                  <Image
+                    source={{ uri: categoria.url }}
+                    style={[
+                      styles.categoriaIcon,
+                      styles.categoriaIconImage,
+                      selectedCategoria === categoria.id &&
+                        styles.categoriaIconSelected,
+                    ]}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.categoriaIcon,
+                      selectedCategoria === categoria.id &&
+                        styles.categoriaIconSelected,
+                    ]}
+                  >
+                    <Text style={styles.categoriaIconText}>📦</Text>
+                  </View>
+                )}
+                <Text
+                  style={[
+                    styles.categoriaName,
+                    selectedCategoria === categoria.id &&
+                      styles.categoriaNameSelected,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {categoria.nombre}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
-            {expandedCategories.has(category) && (
-              <View style={styles.servicesContainer}>
-                {filteredServices[category].map((serviceName) => {
-                  const serviceId = getServiceId(category, serviceName);
-                  return (
-                    <ServiceCard
-                      key={serviceId}
-                      serviceName={serviceName}
-                      isSelected={selectedServices.has(serviceId)}
-                      onToggle={() => toggleService(serviceId)}
-                    />
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        ))}
-      </ScrollView>
+      {/* Lista de Servicios */}
+      {loadingData ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Cargando servicios...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {filteredServicios.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
+                {searchQuery
+                  ? "No se encontraron servicios"
+                  : "No hay servicios disponibles"}
+              </Text>
+            </View>
+          ) : (
+            filteredServicios.map((servicio) => (
+              <ServiceCard
+                key={servicio.id}
+                serviceName={servicio.nombre}
+                isSelected={selectedServices.has(servicio.id)}
+                onToggle={() => toggleService(servicio.id)}
+              />
+            ))
+          )}
+        </ScrollView>
+      )}
 
       <View style={styles.footer}>
         <Button
@@ -288,38 +411,83 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginLeft: 8,
   },
+  categoriasCarouselContainer: {
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 12,
+  },
+  categoriasCarousel: {
+    flexGrow: 0,
+  },
+  categoriasCarouselContent: {
+    paddingHorizontal: 12,
+  },
+  categoriaCard: {
+    width: 90,
+    alignItems: "center",
+    marginHorizontal: 6,
+    paddingVertical: 8,
+  },
+  categoriaCardSelected: {
+    backgroundColor: colors.primaryLight + "20",
+    borderRadius: 12,
+  },
+  categoriaIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  categoriaIconImage: {
+    backgroundColor: colors.white,
+  },
+  categoriaIconSelected: {
+    borderColor: colors.primary,
+    borderWidth: 3,
+  },
+  categoriaIconText: {
+    fontSize: 28,
+  },
+  categoriaName: {
+    fontSize: 11,
+    color: colors.text,
+    textAlign: "center",
+    fontWeight: "500",
+  },
+  categoriaNameSelected: {
+    color: colors.primary,
+    fontWeight: "600",
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
   },
-  categoryContainer: {
-    marginBottom: 24,
-  },
-  categoryHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.primaryLight + "20",
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  categoryTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.primaryDark,
+  loadingContainer: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  expandIcon: {
+  loadingText: {
+    marginTop: 12,
     fontSize: 14,
-    color: colors.primary,
-    fontWeight: "bold",
+    color: colors.textSecondary,
   },
-  servicesContainer: {
-    paddingLeft: 8,
+  emptyState: {
+    padding: 32,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: "center",
   },
   footer: {
     padding: 24,
@@ -328,3 +496,4 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
 });
+

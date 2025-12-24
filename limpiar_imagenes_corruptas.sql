@@ -1,0 +1,16 @@
+-- Script para limpiar imágenes corruptas de solicitudes
+-- Ejecutar en el SQL Editor de Supabase
+-- Ver archivos problemáticos (261 bytes o menos)
+-- Nota: Esto es solo una consulta de verificación, no elimina nada aún
+-- Para eliminar manualmente desde Storage UI:
+-- 1. Ir a Storage > solicitudes
+-- 2. Buscar archivos con tamaño <= 261 bytes
+-- 3. Eliminarlos manualmente
+-- Los archivos problemáticos mencionados en el error son:
+-- e5b1708a-16e5-4097-b5e5-e3a53cd4b3e5/37/1766488168175_0.jpg (261 bytes)
+-- e5b1708a-16e5-4097-b5e5-e3a53cd4b3e5/29/1766486513283_0.jpg
+-- e5b1708a-16e5-4097-b5e5-e3a53cd4b3e5/27/1766486146880_0.jpg
+-- También eliminar el avatar corrupto:
+-- e5b1708a-16e5-4097-b5e5-e3a53cd4b3e5/avatar.jpg
+-- NOTA: No podemos eliminar archivos directamente desde SQL
+-- Usar el dashboard de Supabase Storage o la API de JavaScript

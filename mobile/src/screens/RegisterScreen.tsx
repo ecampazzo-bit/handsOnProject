@@ -9,6 +9,7 @@ import {
   Alert,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -28,6 +29,12 @@ import {
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { colors } from "../constants/colors";
+import {
+  pickImageFromGallery,
+  takePhotoWithCamera,
+  uploadProfilePicture,
+} from "../services/profileService";
+import * as ImageManipulator from "expo-image-manipulator";
 import { RootStackParamList, RegisterFormData } from "../types/navigation";
 
 type RegisterScreenNavigationProp = StackNavigationProp<
@@ -41,6 +48,8 @@ export const RegisterScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [formData, setFormData] = useState<Partial<RegisterFormData>>({});
+  const [profileImageUri, setProfileImageUri] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const step1Form = useForm<RegisterStep1FormData>({
     resolver: yupResolver(registerStep1Schema),
@@ -69,6 +78,61 @@ export const RegisterScreen: React.FC = () => {
       longitud: null,
     },
   });
+
+  const handleEditProfilePicture = () => {
+    Alert.alert("Seleccionar Foto", "Elige una opción", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Galería",
+        onPress: async () => {
+          try {
+            const result = await pickImageFromGallery();
+            if (!result.canceled && result.assets && result.assets[0]) {
+              await processImage(result.assets[0].uri);
+            }
+          } catch (error: any) {
+            Alert.alert(
+              "Error",
+              error.message || "No se pudo seleccionar la imagen"
+            );
+          }
+        },
+      },
+      {
+        text: "Cámara",
+        onPress: async () => {
+          try {
+            const result = await takePhotoWithCamera();
+            if (!result.canceled && result.assets && result.assets[0]) {
+              await processImage(result.assets[0].uri);
+            }
+          } catch (error: any) {
+            Alert.alert("Error", error.message || "No se pudo tomar la foto");
+          }
+        },
+      },
+    ]);
+  };
+
+  const processImage = async (imageUri: string) => {
+    setUploadingPhoto(true);
+    try {
+      // Convertir a JPG
+      const manipulatedImage = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [],
+        {
+          compress: 0.8,
+          format: ImageManipulator.SaveFormat.JPEG,
+        }
+      );
+      setProfileImageUri(manipulatedImage.uri);
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo procesar la imagen");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const handleStep1Next = async (data: RegisterStep1FormData) => {
     try {
@@ -371,6 +435,37 @@ export const RegisterScreen: React.FC = () => {
       }
 
       if (user) {
+        console.log("Usuario creado exitosamente:", user.id);
+
+        // Esperar un momento para que la sesión se establezca completamente
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Subir foto de perfil si existe
+        if (profileImageUri) {
+          console.log("Subiendo foto de perfil...");
+          try {
+            // Pasar waitForSession=true para esperar a que la sesión esté lista
+            const photoResult = await uploadProfilePicture(
+              user.id,
+              profileImageUri,
+              true // Esperar a que la sesión esté establecida
+            );
+            if (photoResult.error) {
+              console.error(
+                "Error subiendo foto de perfil:",
+                photoResult.error
+              );
+              // No detener el proceso por error en la foto
+              // La foto se puede subir más tarde desde el perfil
+            } else {
+              console.log("Foto de perfil subida exitosamente");
+            }
+          } catch (photoError) {
+            console.error("Error al procesar foto de perfil:", photoError);
+            // Continuar con el registro aunque falle la foto
+          }
+        }
+
         // Si el usuario es prestador o ambos, debe seleccionar servicios
         if (
           user.tipo_usuario === "prestador" ||
@@ -426,6 +521,51 @@ export const RegisterScreen: React.FC = () => {
   const renderStep1 = () => (
     <View>
       <Text style={styles.stepTitle}>Información Personal</Text>
+
+      {/* Foto de Perfil (Opcional) */}
+      <View style={styles.profilePhotoSection}>
+        <Text style={styles.photoLabel}>Foto de Perfil (Opcional)</Text>
+        <View style={styles.profilePhotoWrapper}>
+          <TouchableOpacity
+            onPress={handleEditProfilePicture}
+            disabled={uploadingPhoto}
+            style={styles.profilePhotoContainer}
+          >
+            {profileImageUri ? (
+              <Image
+                source={{ uri: profileImageUri }}
+                style={styles.profilePhoto}
+              />
+            ) : (
+              <View style={styles.profilePhotoPlaceholder}>
+                <Text style={styles.photoPlaceholderText}>📷</Text>
+                <Text style={styles.photoPlaceholderSubtext}>Agregar foto</Text>
+              </View>
+            )}
+            {uploadingPhoto && (
+              <View style={styles.uploadingOverlay}>
+                <ActivityIndicator size="small" color={colors.white} />
+              </View>
+            )}
+          </TouchableOpacity>
+          {profileImageUri && !uploadingPhoto && (
+            <TouchableOpacity
+              onPress={() => {
+                setProfileImageUri(null);
+              }}
+              style={styles.removePhotoButton}
+            >
+              <Text style={styles.removePhotoButtonText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {profileImageUri && (
+          <Text style={styles.photoHintText}>
+            ✓ Foto seleccionada. Puedes cambiarla tocando la imagen.
+          </Text>
+        )}
+      </View>
+
       <Controller
         control={step1Form.control}
         name="nombre"
@@ -665,13 +805,6 @@ export const RegisterScreen: React.FC = () => {
         </View>
       )}
 
-      <View style={styles.avatarPlaceholder}>
-        <Text style={styles.avatarPlaceholderText}>📷</Text>
-        <Text style={styles.avatarPlaceholderLabel}>
-          Foto de perfil (próximamente)
-        </Text>
-      </View>
-
       <View style={styles.buttonRow}>
         <Button
           title="Atrás"
@@ -825,25 +958,6 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontSize: 12,
   },
-  avatarPlaceholder: {
-    backgroundColor: colors.backgroundSecondary,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: "dashed",
-    borderRadius: 12,
-    padding: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
-  avatarPlaceholderText: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  avatarPlaceholderLabel: {
-    color: colors.textSecondary,
-    fontSize: 14,
-  },
   buttonRow: {
     flexDirection: "row",
     gap: 12,
@@ -853,5 +967,81 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     flex: 2,
+  },
+  profilePhotoSection: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  photoLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  profilePhotoWrapper: {
+    position: "relative",
+    marginBottom: 8,
+  },
+  profilePhotoContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    overflow: "hidden",
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 3,
+    borderColor: colors.border,
+  },
+  profilePhoto: {
+    width: "100%",
+    height: "100%",
+  },
+  profilePhotoPlaceholder: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.backgroundSecondary,
+  },
+  photoPlaceholderText: {
+    fontSize: 48,
+    marginBottom: 4,
+  },
+  photoPlaceholderSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removePhotoButton: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.error,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.white,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  removePhotoButtonText: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  photoHintText: {
+    fontSize: 12,
+    color: colors.success,
+    marginTop: 4,
+    textAlign: "center",
   },
 });

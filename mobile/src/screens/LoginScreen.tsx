@@ -9,17 +9,20 @@ import {
   Alert,
   TouchableOpacity,
   Image,
+  Modal,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signIn, resendVerificationEmail } from "../services/authService";
 import { loginSchema } from "../utils/validation";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { colors } from "../constants/colors";
 import { RootStackParamList } from "../types/navigation";
+import { supabase } from "../services/supabaseClient";
 
 type LoginScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -31,11 +34,15 @@ interface LoginFormData {
   password: string;
 }
 
+const WELCOME_MESSAGE_KEY = "@ofisi_welcome_shown";
+
 export const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const [loading, setLoading] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [userName, setUserName] = useState<string>("");
 
   const {
     control,
@@ -172,8 +179,58 @@ export const LoginScreen: React.FC = () => {
 
       if (user) {
         setShowResendButton(false); // Ocultar el botón si el login fue exitoso
-        // Navegar directamente a HomeScreen sin mostrar alert
-        navigation.replace("Home");
+        
+        // Verificar si el email está verificado y mostrar mensaje de bienvenida
+        const checkEmailVerification = async () => {
+          try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            
+            if (authUser?.email_confirmed_at) {
+              // Verificar si ya mostramos el mensaje de bienvenida para este usuario
+              const welcomeShown = await AsyncStorage.getItem(
+                `${WELCOME_MESSAGE_KEY}_${authUser.id}`
+              );
+              
+              // Obtener nombre del usuario para el mensaje de bienvenida
+              const { data: userData } = await supabase
+                .from("users")
+                .select("nombre")
+                .eq("id", authUser.id)
+                .single();
+              
+              const name = userData?.nombre || "";
+              setUserName(name);
+              
+              // Verificar si el email fue confirmado recientemente (últimas 24 horas)
+              const confirmedAt = new Date(authUser.email_confirmed_at);
+              const now = new Date();
+              const hoursSinceConfirmation = 
+                (now.getTime() - confirmedAt.getTime()) / (1000 * 60 * 60);
+              
+              // Mostrar mensaje si fue confirmado recientemente y no lo hemos mostrado antes
+              if (hoursSinceConfirmation < 24 && !welcomeShown) {
+                setShowWelcomeModal(true);
+                // Marcar como mostrado para no volver a mostrarlo
+                await AsyncStorage.setItem(
+                  `${WELCOME_MESSAGE_KEY}_${authUser.id}`,
+                  "true"
+                );
+              } else {
+                // Si ya lo mostramos o no es reciente, navegar directamente
+                navigation.replace("Home");
+              }
+            } else {
+              // Email no verificado, navegar normalmente
+              navigation.replace("Home");
+            }
+          } catch (error) {
+            console.error("Error al verificar email:", error);
+            // En caso de error, navegar normalmente
+            navigation.replace("Home");
+          }
+        };
+        
+        await checkEmailVerification();
       }
     } catch (error) {
       Alert.alert(
@@ -287,6 +344,40 @@ export const LoginScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Modal de Bienvenida */}
+      <Modal
+        visible={showWelcomeModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowWelcomeModal(false);
+          navigation.replace("Home");
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.welcomeIconContainer}>
+              <Text style={styles.welcomeIcon}>🎉</Text>
+            </View>
+            <Text style={styles.welcomeTitle}>
+              ¡Bienvenido{userName ? ` ${userName}` : ""}!
+            </Text>
+            <Text style={styles.welcomeMessage}>
+              Tu email ha sido verificado exitosamente.{"\n\n"}
+              Estamos felices de tenerte en ofiSí. Ahora puedes disfrutar de todas las funcionalidades de la app.
+            </Text>
+            <Button
+              title="¡Empezar!"
+              onPress={() => {
+                setShowWelcomeModal(false);
+                navigation.replace("Home");
+              }}
+              style={styles.welcomeButton}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -381,5 +472,57 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  welcomeIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primaryLight + "20",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  welcomeIcon: {
+    fontSize: 48,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  welcomeMessage: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  welcomeButton: {
+    width: "100%",
   },
 });

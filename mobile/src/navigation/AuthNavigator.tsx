@@ -13,6 +13,8 @@ import { MisPresupuestosScreen } from "../screens/MisPresupuestosScreen";
 import { MisTrabajosScreen } from "../screens/MisTrabajosScreen";
 import { MisCotizacionesScreen } from "../screens/MisCotizacionesScreen";
 import { NotificacionesScreen } from "../screens/NotificacionesScreen";
+import { PhoneVerificationScreen } from "../screens/PhoneVerificationScreen";
+import { PromocionesScreen } from "../screens/PromocionesScreen";
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -55,6 +57,11 @@ export const AuthNavigator: React.FC = () => {
           component={MisCotizacionesScreen}
         />
         <Stack.Screen name="Notificaciones" component={NotificacionesScreen} />
+        <Stack.Screen
+          name="PhoneVerification"
+          component={PhoneVerificationScreen}
+        />
+        <Stack.Screen name="Promociones" component={PromocionesScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
