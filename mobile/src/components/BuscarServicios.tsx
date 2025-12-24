@@ -467,9 +467,6 @@ export const BuscarServicios: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.title}>Buscando...</Text>
-      </View>
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -577,7 +574,7 @@ export const BuscarServicios: React.FC = () => {
           </ScrollView>
 
           {/* Carrusel de Top Prestadores - Fijo en la parte inferior */}
-          {topPrestadores.length > 0 && (
+          {topPrestadores.length > 0 && selectedCategoria === null && searchQuery.trim() === "" && (
             <View style={styles.carouselContainer}>
               <Text style={styles.carouselTitle}>
                 🌟 Mejores Calificados
@@ -803,20 +800,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.text,
-  },
   searchContainer: {
-    padding: 16,
+    padding: 14, // Reducido 10% (16 * 0.9)
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -825,7 +810,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingVertical: 12,
+    paddingVertical: 10, // Reducido 10% adicional (11 * 0.9)
   },
   categoriasCarousel: {
     flexGrow: 0,
@@ -837,20 +822,20 @@ const styles = StyleSheet.create({
     width: 90,
     alignItems: "center",
     marginHorizontal: 6,
-    paddingVertical: 8,
+    paddingVertical: 7, // Reducido 10% (8 * 0.9)
   },
   categoriaCardSelected: {
     backgroundColor: colors.primaryLight + "20",
     borderRadius: 12,
   },
   categoriaIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 54, // Reducido 10% (60 * 0.9)
+    height: 54, // Reducido 10% (60 * 0.9)
+    borderRadius: 27, // Reducido 10% (30 * 0.9)
     backgroundColor: colors.backgroundSecondary,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 5, // Reducido 10% (6 * 0.9)
     borderWidth: 2,
     borderColor: colors.border,
   },
@@ -862,10 +847,10 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
   categoriaIconText: {
-    fontSize: 28,
+    fontSize: 25, // Reducido 10% (28 * 0.9)
   },
   categoriaName: {
-    fontSize: 11,
+    fontSize: 10, // Reducido 10% (11 * 0.9)
     color: colors.text,
     textAlign: "center",
     fontWeight: "500",
@@ -877,8 +862,8 @@ const styles = StyleSheet.create({
   searchInput: {
     backgroundColor: colors.backgroundSecondary,
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    padding: 11, // Reducido 10% (12 * 0.9)
+    fontSize: 14, // Reducido 10% (16 * 0.9)
     color: colors.text,
   },
   serviciosList: {
@@ -1080,15 +1065,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingTop: 10, // Reducido 10% adicional (11 * 0.9)
+    paddingBottom: 13, // Reducido 10% adicional (14 * 0.9)
   },
   carouselTitle: {
-    fontSize: 16,
+    fontSize: 13, // Reducido 10% adicional (14 * 0.9)
     fontWeight: "bold",
     color: colors.text,
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 10, // Reducido 10% adicional (11 * 0.9)
   },
   carousel: {
     flexGrow: 0,
@@ -1100,7 +1085,7 @@ const styles = StyleSheet.create({
     width: 140,
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 12,
+    padding: 11, // Reducido 10% (12 * 0.9)
     marginHorizontal: 4,
     borderWidth: 2,
     borderColor: colors.warning + "40",
@@ -1118,10 +1103,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   carouselFoto: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 8,
+    width: 54, // Reducido 10% (60 * 0.9)
+    height: 54, // Reducido 10% (60 * 0.9)
+    borderRadius: 27, // Reducido 10% (30 * 0.9)
+    marginBottom: 7, // Reducido 10% (8 * 0.9)
   },
   carouselFotoPlaceholder: {
     backgroundColor: colors.primary + "20",
@@ -1129,22 +1114,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   carouselFotoText: {
-    fontSize: 20,
+    fontSize: 18, // Reducido 10% (20 * 0.9)
     fontWeight: "600",
     color: colors.primary,
   },
   carouselNombre: {
-    fontSize: 13,
+    fontSize: 12, // Reducido 10% (13 * 0.9)
     fontWeight: "600",
     color: colors.text,
     textAlign: "center",
     marginBottom: 2,
   },
   carouselServicio: {
-    fontSize: 11,
+    fontSize: 10, // Reducido 10% (11 * 0.9)
     color: colors.textSecondary,
     textAlign: "center",
-    marginBottom: 6,
+    marginBottom: 5, // Reducido 10% (6 * 0.9)
   },
   carouselRating: {
     flexDirection: "row",
@@ -1152,13 +1137,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   carouselRatingNumber: {
-    fontSize: 12,
+    fontSize: 11, // Reducido 10% (12 * 0.9)
     fontWeight: "600",
     color: colors.warning,
     marginLeft: 4,
   },
   carouselRatingCount: {
-    fontSize: 10,
+    fontSize: 9, // Reducido 10% (10 * 0.9)
     color: colors.textSecondary,
     textAlign: "center",
   },

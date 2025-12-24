@@ -331,7 +331,11 @@ const styles = StyleSheet.create({
   },
   slideContainer: {
     width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * (Platform.OS === 'android' ? 0.7372 : 0.76), // Android: reducido 3% adicional (0.76 * 0.97 = 0.7372)
+    height: SCREEN_HEIGHT * (
+      Platform.OS === 'android' ? 0.7372 : // Android: reducido 8% total (0.76 * 0.97 = 0.7372)
+      Platform.OS === 'ios' ? 0.722 : // iOS: reducido 10% total (0.76 * 0.95 = 0.722)
+      0.76 // Otros: reducido 5% (80% * 0.95 = 76%)
+    ),
     position: "relative",
   },
   promocionImage: {
