@@ -265,19 +265,25 @@ export const MisPresupuestosScreen: React.FC = () => {
         descripcion_problema: s.descripcion_problema,
         estado: s.estado,
         created_at: s.created_at,
-        cotizaciones: (s.cotizaciones || []).map((c: any) => ({
-          id: c.id,
-          precio_ofrecido: c.precio_ofrecido,
-          tiempo_estimado: c.tiempo_estimado,
-          descripcion_trabajo: c.descripcion_trabajo,
-          fecha_disponible: c.fecha_disponible,
-          estado: c.estado,
+        cotizaciones: (s.cotizaciones || []).map((c: any) => {
+          // Debug: verificar fecha_disponible
+          if (c.fecha_disponible) {
+            console.log('Fecha disponible encontrada:', c.fecha_disponible, 'Tipo:', typeof c.fecha_disponible);
+          }
+          return {
+            id: c.id,
+            precio_ofrecido: c.precio_ofrecido,
+            tiempo_estimado: c.tiempo_estimado,
+            descripcion_trabajo: c.descripcion_trabajo,
+            fecha_disponible: c.fecha_disponible,
+            estado: c.estado,
           prestador: {
             id: c.prestadores.id,
             usuario: c.prestadores.users_public,
             stats: statsMap.get(c.prestadores.id),
           },
-        })),
+          };
+        }),
       }));
 
       setSolicitudes(formattedData);
@@ -594,6 +600,27 @@ export const MisPresupuestosScreen: React.FC = () => {
                           ${cotiz.precio_ofrecido} • {cotiz.tiempo_estimado}hs
                           aprox.
                         </Text>
+                        {/* Fecha programada */}
+                        {cotiz.fecha_disponible && (
+                          <Text style={styles.fechaPrecioText}>
+                            📅 {(() => {
+                              try {
+                                // Asegurar que la fecha se parsee correctamente
+                                const fecha = new Date(cotiz.fecha_disponible);
+                                if (isNaN(fecha.getTime())) {
+                                  return cotiz.fecha_disponible;
+                                }
+                                return fecha.toLocaleDateString("es-AR", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                });
+                              } catch (error) {
+                                return cotiz.fecha_disponible;
+                              }
+                            })()}
+                          </Text>
+                        )}
                       </View>
                     </View>
 
@@ -620,23 +647,6 @@ export const MisPresupuestosScreen: React.FC = () => {
                           </Text>
                           <Text style={styles.statLabel}>Rechazadas</Text>
                         </View>
-                      </View>
-                    )}
-
-                    {/* Fecha programada */}
-                    {cotiz.fecha_disponible && (
-                      <View style={styles.fechaContainer}>
-                        <Text style={styles.fechaLabel}>📅 Fecha programada:</Text>
-                        <Text style={styles.fechaText}>
-                          {new Date(cotiz.fecha_disponible).toLocaleDateString(
-                            "es-AR",
-                            {
-                              day: "2-digit",
-                              month: "long",
-                              year: "numeric",
-                            }
-                          )}
-                        </Text>
                       </View>
                     )}
 
@@ -970,7 +980,13 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginBottom: 4,
   },
-  precioText: { color: colors.success, fontWeight: "600", fontSize: 13 },
+  precioText: { color: colors.success, fontWeight: "600", fontSize: 13, marginBottom: 4 },
+  fechaPrecioText: { 
+    color: colors.primary, 
+    fontWeight: "500", 
+    fontSize: 12,
+    marginTop: 4,
+  },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",

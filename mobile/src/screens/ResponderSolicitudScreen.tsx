@@ -155,17 +155,15 @@ export const ResponderSolicitudScreen: React.FC = () => {
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Fecha Programada para el Trabajo (Opcional)</Text>
+          <Text style={styles.label}>
+            Fecha Programada para el Trabajo (Opcional)
+          </Text>
           <TouchableOpacity
             style={styles.input}
             onPress={() => setShowDatePicker(true)}
           >
             <Text
-              style={
-                fechaProgramada
-                  ? styles.dateText
-                  : styles.datePlaceholder
-              }
+              style={fechaProgramada ? styles.dateText : styles.datePlaceholder}
             >
               {fechaProgramada
                 ? fechaProgramada.toLocaleDateString("es-AR", {
@@ -195,7 +193,8 @@ export const ResponderSolicitudScreen: React.FC = () => {
                   }
                 }
               }}
-              locale="es-AR"
+              locale="es-ES"
+              is24Hour={true}
             />
           )}
           {Platform.OS === "ios" && showDatePicker && (

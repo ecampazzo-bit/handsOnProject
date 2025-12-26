@@ -39,10 +39,13 @@ interface Trabajo {
   estado: string;
   monto_final: number;
   created_at: string;
+  fecha_programada?: string | null;
+  fecha_inicio?: string | null;
   prestador_id: number;
   cliente_id: string;
   servicio_id?: number;
   ya_calificado?: boolean;
+  tieneFotosPortfolio?: boolean;
   es_cliente?: boolean; // Si el usuario actual es el cliente en este trabajo
   es_prestador?: boolean; // Si el usuario actual es el prestador en este trabajo
   notas_prestador?: string | null;
@@ -72,9 +75,9 @@ export const MisTrabajosScreen: React.FC = () => {
   >(null);
   const [puedeSerPrestadorYCliente, setPuedeSerPrestadorYCliente] =
     useState(false);
-  const [activeTab, setActiveTab] = useState<"en_curso" | "terminados" | "cancelados">(
-    "en_curso"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "en_curso" | "terminados" | "cancelados"
+  >("en_curso");
 
   // Estados para el modal de calificación
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -96,6 +99,13 @@ export const MisTrabajosScreen: React.FC = () => {
     useState<Trabajo | null>(null);
   const [motivoCancelacion, setMotivoCancelacion] = useState("");
   const [cancelingTrabajo, setCancelingTrabajo] = useState(false);
+
+  // Estados para el modal de agregar fotos al portfolio
+  const [showAgregarFotosModal, setShowAgregarFotosModal] = useState(false);
+  const [selectedTrabajoParaFotos, setSelectedTrabajoParaFotos] =
+    useState<Trabajo | null>(null);
+  const [fotosPortfolio, setFotosPortfolio] = useState<string[]>([]);
+  const [uploadingFotosPortfolio, setUploadingFotosPortfolio] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -167,6 +177,8 @@ export const MisTrabajosScreen: React.FC = () => {
           estado,
           monto_final,
           created_at,
+          fecha_programada,
+          fecha_inicio,
           prestador_id,
           cliente_id,
           notas_prestador,
@@ -201,7 +213,7 @@ export const MisTrabajosScreen: React.FC = () => {
 
       if (error) throw error;
 
-      const formatted: Trabajo[] = (data || []).map((t: any) => {
+      let formatted: Trabajo[] = (data || []).map((t: any) => {
         // Determinar el rol del usuario en este trabajo específico
         const esClienteEnEsteTrabajo = t.cliente_id === userId;
         // Para determinar si es prestador, necesitamos verificar tanto el prestadorId como el usuario_id del prestador
@@ -242,9 +254,12 @@ export const MisTrabajosScreen: React.FC = () => {
           estado: t.estado,
           monto_final: t.monto_final,
           created_at: t.created_at,
+          fecha_programada: t.fecha_programada,
+          fecha_inicio: t.fecha_inicio,
           prestador_id: t.prestador_id,
           cliente_id: t.cliente_id,
           ya_calificado: yaCalificado,
+          tieneFotosPortfolio: false, // Se actualizará después con una consulta separada
           es_cliente: esClienteEnEsteTrabajo, // Agregar flag para saber el rol en este trabajo
           es_prestador: esPrestadorEnEsteTrabajo, // Agregar flag para saber el rol en este trabajo
           notas_prestador: t.notas_prestador,
@@ -266,6 +281,31 @@ export const MisTrabajosScreen: React.FC = () => {
           },
         };
       });
+
+      // Obtener información del portfolio para saber si hay fotos
+      if (prestadorId) {
+        const { data: portfolioData } = await supabase
+          .from("portfolio")
+          .select("id, servicio_id, fotos_urls")
+          .eq("prestador_id", prestadorId);
+
+        // Crear un mapa de servicio_id -> tiene fotos
+        const serviciosConFotos = new Set();
+        if (portfolioData) {
+          portfolioData.forEach((p: any) => {
+            if (p.fotos_urls && p.fotos_urls.length > 0) {
+              serviciosConFotos.add(p.servicio_id);
+            }
+          });
+        }
+
+        // Actualizar los trabajos con la información del portfolio
+        formatted = formatted.map((t) => ({
+          ...t,
+          tieneFotosPortfolio:
+            serviciosConFotos.has(t.servicio_id) && t.es_prestador,
+        }));
+      }
 
       setTrabajos(formatted);
 
@@ -387,10 +427,7 @@ export const MisTrabajosScreen: React.FC = () => {
         selectedTrabajoParaFinalizar.solicitud.servicio.id;
 
       if (!servicioId) {
-        Alert.alert(
-          "Error",
-          "No se pudo obtener la información del servicio"
-        );
+        Alert.alert("Error", "No se pudo obtener la información del servicio");
         return;
       }
 
@@ -410,10 +447,7 @@ export const MisTrabajosScreen: React.FC = () => {
       Alert.alert("Éxito", "Trabajo marcado como finalizado.");
       loadData();
     } catch (error: any) {
-      Alert.alert(
-        "Error",
-        error.message || "No se pudo finalizar el trabajo"
-      );
+      Alert.alert("Error", error.message || "No se pudo finalizar el trabajo");
     } finally {
       setUploadingFotos(false);
     }
@@ -429,7 +463,10 @@ export const MisTrabajosScreen: React.FC = () => {
     if (!selectedTrabajoParaCancelar) return;
 
     if (!motivoCancelacion.trim()) {
-      Alert.alert("Motivo requerido", "Por favor, ingresa el motivo de la cancelación.");
+      Alert.alert(
+        "Motivo requerido",
+        "Por favor, ingresa el motivo de la cancelación."
+      );
       return;
     }
 
@@ -469,7 +506,8 @@ export const MisTrabajosScreen: React.FC = () => {
           .single();
 
         const servicioNombre =
-          (trabajoData?.solicitudes_servicio as any)?.servicios?.nombre || "servicio";
+          (trabajoData?.solicitudes_servicio as any)?.servicios?.nombre ||
+          "servicio";
 
         const mensajeNotificacion = esPrestador
           ? `El prestador ha cancelado el trabajo de ${servicioNombre}. Motivo: ${motivoCancelacion.trim()}`
@@ -492,13 +530,125 @@ export const MisTrabajosScreen: React.FC = () => {
       Alert.alert("Éxito", "El trabajo ha sido cancelado.");
       loadData();
     } catch (error: any) {
-      Alert.alert(
-        "Error",
-        error.message || "No se pudo cancelar el trabajo"
-      );
+      Alert.alert("Error", error.message || "No se pudo cancelar el trabajo");
     } finally {
       setCancelingTrabajo(false);
     }
+  };
+
+  // Función para agregar fotos al portfolio de trabajos completados
+  const handleAgregarFotosPortfolio = (trabajo: Trabajo) => {
+    setSelectedTrabajoParaFotos(trabajo);
+    setFotosPortfolio([]);
+    setShowAgregarFotosModal(true);
+  };
+
+  const handleConfirmarAgregarFotos = async () => {
+    if (!selectedTrabajoParaFotos) return;
+
+    if (fotosPortfolio.length === 0) {
+      Alert.alert(
+        "Fotos requeridas",
+        "Por favor, selecciona al menos una foto para agregar al portfolio."
+      );
+      return;
+    }
+
+    try {
+      setUploadingFotosPortfolio(true);
+
+      // Obtener el usuario_id del prestador para subir las fotos
+      const { data: prestadorData } = await supabase
+        .from("prestadores")
+        .select("usuario_id")
+        .eq("id", selectedTrabajoParaFotos.prestador_id)
+        .single();
+
+      if (!prestadorData) {
+        throw new Error("No se pudo obtener la información del prestador");
+      }
+
+      // Subir las fotos al storage y obtener las URLs
+      const fotosUrls = await uploadPortfolioPhotos(
+        prestadorData.usuario_id,
+        fotosPortfolio
+      );
+
+      // Buscar si ya existe un registro de portfolio para este servicio
+      const { data: existingPortfolio } = await supabase
+        .from("portfolio")
+        .select("id, fotos_urls")
+        .eq("prestador_id", selectedTrabajoParaFotos.prestador_id)
+        .eq("servicio_id", selectedTrabajoParaFotos.servicio_id)
+        .single();
+
+      if (existingPortfolio) {
+        // Si existe, agregar las URLs al array existente
+        const fotosActualizadas = [
+          ...(existingPortfolio.fotos_urls || []),
+          ...fotosUrls,
+        ];
+        const { error: updateError } = await supabase
+          .from("portfolio")
+          .update({ fotos_urls: fotosActualizadas })
+          .eq("id", existingPortfolio.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Si no existe, crear un nuevo registro
+        const { error: insertError } = await supabase.from("portfolio").insert({
+          prestador_id: selectedTrabajoParaFotos.prestador_id,
+          servicio_id: selectedTrabajoParaFotos.servicio_id,
+          titulo: `Trabajo completado`,
+          descripcion: `Fotos del trabajo realizado`,
+          fotos_urls: fotosUrls,
+          fecha_trabajo: new Date().toISOString().split("T")[0],
+        });
+
+        if (insertError) throw insertError;
+      }
+
+      setShowAgregarFotosModal(false);
+      setFotosPortfolio([]);
+      setSelectedTrabajoParaFotos(null);
+      Alert.alert(
+        "Éxito",
+        "Las fotos se agregaron correctamente a tu portfolio."
+      );
+      loadData();
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error.message || "No se pudieron agregar las fotos al portfolio"
+      );
+    } finally {
+      setUploadingFotosPortfolio(false);
+    }
+  };
+
+  const handleSelectPhotoForPortfolio = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permiso denegado",
+        "Necesitamos acceso a tu galería para subir fotos."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]?.uri) {
+      setFotosPortfolio([...fotosPortfolio, result.assets[0].uri]);
+    }
+  };
+
+  const handleRemovePhotoFromPortfolio = (index: number) => {
+    setFotosPortfolio(fotosPortfolio.filter((_, i) => i !== index));
   };
 
   const handleFinalizarComoCliente = async (trabajoId: number) => {
@@ -777,7 +927,9 @@ export const MisTrabajosScreen: React.FC = () => {
     puedeSerPrestadorYCliente,
     activeRoleTab,
     activeTab,
-    trabajosPrestador: trabajosFiltrados.filter((t) => t.es_prestador && t.estado !== "completado"),
+    trabajosPrestador: trabajosFiltrados.filter(
+      (t) => t.es_prestador && t.estado !== "completado"
+    ),
   });
 
   if (loading) {
@@ -1105,10 +1257,10 @@ export const MisTrabajosScreen: React.FC = () => {
               {trabajo.estado === "cancelado" && (
                 <View style={styles.motivoCancelacionContainer}>
                   {(() => {
-                    const canceladoPor = trabajo.notas_prestador 
-                      ? "🔧 Cancelado por prestador" 
-                      : trabajo.notas_cliente 
-                      ? "👤 Cancelado por cliente" 
+                    const canceladoPor = trabajo.notas_prestador
+                      ? "🔧 Cancelado por prestador"
+                      : trabajo.notas_cliente
+                      ? "👤 Cancelado por cliente"
                       : "❌ Cancelado";
                     return (
                       <>
@@ -1119,7 +1271,9 @@ export const MisTrabajosScreen: React.FC = () => {
                           Motivo:
                         </Text>
                         <Text style={styles.motivoCancelacion}>
-                          {trabajo.notas_prestador || trabajo.notas_cliente || "Sin motivo especificado"}
+                          {trabajo.notas_prestador ||
+                            trabajo.notas_cliente ||
+                            "Sin motivo especificado"}
                         </Text>
                       </>
                     );
@@ -1128,62 +1282,88 @@ export const MisTrabajosScreen: React.FC = () => {
               )}
 
               <View style={styles.cardFooter}>
-                <Text style={styles.fecha}>
-                  {new Date(trabajo.created_at).toLocaleDateString("es-AR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
-                </Text>
+                <View style={styles.cardFooterLeft}>
+                  <Text style={styles.fecha}>
+                    {new Date(trabajo.created_at).toLocaleDateString("es-AR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </Text>
+                  {/* Fecha programada */}
+                  {(trabajo.fecha_programada || trabajo.fecha_inicio) && (
+                    <View style={styles.fechaProgramadaContainer}>
+                      <Text style={styles.fechaProgramadaLabel}>
+                        📅 Fecha Programada:
+                      </Text>
+                      <Text style={styles.fechaProgramada}>
+                        {trabajo.fecha_programada
+                          ? new Date(
+                              trabajo.fecha_programada
+                            ).toLocaleDateString("es-AR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "2-digit",
+                            })
+                          : trabajo.fecha_inicio
+                          ? new Date(trabajo.fecha_inicio).toLocaleDateString(
+                              "es-AR",
+                              {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "2-digit",
+                              }
+                            )
+                          : ""}
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.monto}>Total: ${trabajo.monto_final}</Text>
               </View>
 
               {/* Botones de acción */}
               <View style={styles.actionButtons}>
                 {/* Botón de finalizar y cancelar para prestadores */}
-                {trabajo.es_prestador && 
-                 trabajo.estado !== "completado" && 
-                 trabajo.estado !== "cancelado" && (
-                  <View style={styles.actionButtonsRow}>
-                    <TouchableOpacity
-                      style={styles.btnFinalizar}
-                      onPress={() => handleFinalizar(trabajo)}
-                    >
-                      <Text style={styles.btnTextWhite}>
-                        📸 Finalizar y Agregar al Portfolio
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.btnCancelar}
-                      onPress={() => handleCancelar(trabajo)}
-                    >
-                      <Text style={styles.btnCancelarText}>
-                        Cancelar
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* Botón de finalizar y cancelar para clientes (trabajos en curso) */}
-                {trabajo.es_cliente &&
+                {trabajo.es_prestador &&
                   trabajo.estado !== "completado" &&
                   trabajo.estado !== "cancelado" && (
                     <View style={styles.actionButtonsRow}>
                       <TouchableOpacity
                         style={styles.btnFinalizar}
-                        onPress={() => handleFinalizarComoCliente(trabajo.id)}
+                        onPress={() => handleFinalizar(trabajo)}
                       >
                         <Text style={styles.btnTextWhite}>
-                          Marcar como Finalizado
+                          📸 Finalizar y Agregar al Portfolio
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.btnCancelar}
                         onPress={() => handleCancelar(trabajo)}
                       >
-                        <Text style={styles.btnCancelarText}>
-                          Cancelar
+                        <Text style={styles.btnCancelarText}>Cancelar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                {/* Botón de finalizar y cancelar para clientes */}
+                {trabajo.es_cliente &&
+                  trabajo.estado !== "completado" &&
+                  trabajo.estado !== "cancelado" && (
+                    <View style={styles.actionButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.btnFinalizar}
+                        onPress={() => handleFinalizar(trabajo)}
+                      >
+                        <Text style={styles.btnTextWhite}>
+                          ✓ Finalizar Trabajo
                         </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.btnCancelar}
+                        onPress={() => handleCancelar(trabajo)}
+                      >
+                        <Text style={styles.btnCancelarText}>Cancelar</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -1202,17 +1382,50 @@ export const MisTrabajosScreen: React.FC = () => {
                     </TouchableOpacity>
                   )}
 
-                {/* Botón de calificar para prestadores (trabajos terminados) */}
-                {trabajo.es_prestador &&
-                  trabajo.estado === "completado" &&
-                  !trabajo.ya_calificado && (
+                {/* Botones de calificar y agregar fotos (lado a lado para prestadores) */}
+                {trabajo.es_prestador && trabajo.estado === "completado" && (
+                  <View style={styles.botonesContainer}>
+                    {/* Botón de calificar cliente */}
                     <TouchableOpacity
-                      style={styles.btnCalificar}
+                      style={[
+                        styles.btnCalificarCompacto,
+                        trabajo.ya_calificado && styles.btnDisabled,
+                      ]}
                       onPress={() => openRatingModal(trabajo)}
+                      disabled={trabajo.ya_calificado}
                     >
-                      <Text style={styles.btnTextWhite}>Calificar Cliente</Text>
+                      <Text
+                        style={[
+                          styles.btnTextWhite,
+                          trabajo.ya_calificado && styles.btnTextDisabled,
+                        ]}
+                      >
+                        ⭐ Calificar
+                      </Text>
                     </TouchableOpacity>
-                  )}
+
+                    {/* Botón de agregar fotos al portfolio */}
+                    <TouchableOpacity
+                      style={[
+                        styles.btnAgregarFotosCompacto,
+                        trabajo.tieneFotosPortfolio && styles.btnDisabled,
+                      ]}
+                      onPress={() => handleAgregarFotosPortfolio(trabajo)}
+                      disabled={trabajo.tieneFotosPortfolio}
+                    >
+                      <Text
+                        style={[
+                          styles.btnAgregarFotosText,
+                          trabajo.tieneFotosPortfolio && styles.btnTextDisabled,
+                        ]}
+                      >
+                        {trabajo.tieneFotosPortfolio
+                          ? "✓ Fotos Agregadas"
+                          : "📸 Agregar Fotos"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {/* Badge de ya calificado */}
                 {trabajo.ya_calificado && (
@@ -1306,6 +1519,33 @@ export const MisTrabajosScreen: React.FC = () => {
               portfolio (opcional)
             </Text>
 
+            {/* Fecha programada */}
+            {(selectedTrabajoParaFinalizar?.fecha_programada ||
+              selectedTrabajoParaFinalizar?.fecha_inicio) && (
+              <View style={styles.modalFechaContainer}>
+                <Text style={styles.modalFechaLabel}>📅 Fecha Programada:</Text>
+                <Text style={styles.modalFechaText}>
+                  {selectedTrabajoParaFinalizar.fecha_programada
+                    ? new Date(
+                        selectedTrabajoParaFinalizar.fecha_programada
+                      ).toLocaleDateString("es-AR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "2-digit",
+                      })
+                    : selectedTrabajoParaFinalizar.fecha_inicio
+                    ? new Date(
+                        selectedTrabajoParaFinalizar.fecha_inicio
+                      ).toLocaleDateString("es-AR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "2-digit",
+                      })
+                    : ""}
+                </Text>
+              </View>
+            )}
+
             {/* Vista previa de fotos seleccionadas */}
             <View style={styles.fotosPreviewContainer}>
               {fotosTrabajo.map((uri, index) => (
@@ -1342,10 +1582,7 @@ export const MisTrabajosScreen: React.FC = () => {
                 <Text style={styles.btnTextCancel}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[
-                  styles.btnSend,
-                  uploadingFotos && { opacity: 0.7 },
-                ]}
+                style={[styles.btnSend, uploadingFotos && { opacity: 0.7 }]}
                 onPress={handleConfirmarFinalizar}
                 disabled={uploadingFotos}
               >
@@ -1370,8 +1607,36 @@ export const MisTrabajosScreen: React.FC = () => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Cancelar Trabajo</Text>
             <Text style={styles.modalSubtitle}>
-              Se registrará que el trabajo no se terminó. Por favor, indica el motivo de la cancelación.
+              Se registrará que el trabajo no se terminó. Por favor, indica el
+              motivo de la cancelación.
             </Text>
+
+            {/* Fecha programada */}
+            {(selectedTrabajoParaCancelar?.fecha_programada ||
+              selectedTrabajoParaCancelar?.fecha_inicio) && (
+              <View style={styles.modalFechaContainer}>
+                <Text style={styles.modalFechaLabel}>📅 Fecha Programada:</Text>
+                <Text style={styles.modalFechaText}>
+                  {selectedTrabajoParaCancelar.fecha_programada
+                    ? new Date(
+                        selectedTrabajoParaCancelar.fecha_programada
+                      ).toLocaleDateString("es-AR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "2-digit",
+                      })
+                    : selectedTrabajoParaCancelar.fecha_inicio
+                    ? new Date(
+                        selectedTrabajoParaCancelar.fecha_inicio
+                      ).toLocaleDateString("es-AR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "2-digit",
+                      })
+                    : ""}
+                </Text>
+              </View>
+            )}
 
             <TextInput
               style={styles.cancelacionInput}
@@ -1397,7 +1662,9 @@ export const MisTrabajosScreen: React.FC = () => {
               <TouchableOpacity
                 style={[
                   styles.btnSend,
-                  (cancelingTrabajo || !motivoCancelacion.trim()) && { opacity: 0.7 },
+                  (cancelingTrabajo || !motivoCancelacion.trim()) && {
+                    opacity: 0.7,
+                  },
                 ]}
                 onPress={handleConfirmarCancelar}
                 disabled={cancelingTrabajo || !motivoCancelacion.trim()}
@@ -1406,6 +1673,104 @@ export const MisTrabajosScreen: React.FC = () => {
                   <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.btnTextWhite}>Confirmar Cancelación</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Agregar Fotos al Portfolio */}
+      <Modal
+        visible={showAgregarFotosModal}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Agregar Fotos al Portfolio</Text>
+            <Text style={styles.modalSubtitle}>
+              Agrega hasta 2 fotos del trabajo completado a tu portfolio
+            </Text>
+
+            {/* Fecha programada */}
+            {(selectedTrabajoParaFotos?.fecha_programada ||
+              selectedTrabajoParaFotos?.fecha_inicio) && (
+              <View style={styles.modalFechaContainer}>
+                <Text style={styles.modalFechaLabel}>📅 Fecha Programada:</Text>
+                <Text style={styles.modalFechaText}>
+                  {selectedTrabajoParaFotos.fecha_programada
+                    ? new Date(
+                        selectedTrabajoParaFotos.fecha_programada
+                      ).toLocaleDateString("es-AR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "2-digit",
+                      })
+                    : selectedTrabajoParaFotos.fecha_inicio
+                    ? new Date(
+                        selectedTrabajoParaFotos.fecha_inicio
+                      ).toLocaleDateString("es-AR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "2-digit",
+                      })
+                    : ""}
+                </Text>
+              </View>
+            )}
+
+            {/* Vista previa de fotos seleccionadas */}
+            <View style={styles.fotosPreviewContainer}>
+              {fotosPortfolio.map((uri, index) => (
+                <View key={index} style={styles.fotoPreviewItem}>
+                  <Image source={{ uri }} style={styles.fotoPreview} />
+                  <TouchableOpacity
+                    style={styles.removeFotoButton}
+                    onPress={() => handleRemovePhotoFromPortfolio(index)}
+                  >
+                    <Text style={styles.removeFotoButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {fotosPortfolio.length < 2 && (
+                <TouchableOpacity
+                  style={styles.addFotoButton}
+                  onPress={handleSelectPhotoForPortfolio}
+                >
+                  <Text style={styles.addFotoButtonText}>+ Agregar Foto</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.btnCancelModal}
+                onPress={() => {
+                  setShowAgregarFotosModal(false);
+                  setFotosPortfolio([]);
+                  setSelectedTrabajoParaFotos(null);
+                }}
+                disabled={uploadingFotosPortfolio}
+              >
+                <Text style={styles.btnTextCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.btnSend,
+                  (uploadingFotosPortfolio || fotosPortfolio.length === 0) && {
+                    opacity: 0.7,
+                  },
+                ]}
+                onPress={handleConfirmarAgregarFotos}
+                disabled={
+                  uploadingFotosPortfolio || fotosPortfolio.length === 0
+                }
+              >
+                {uploadingFotosPortfolio ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text style={styles.btnTextWhite}>Agregar al Portfolio</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1672,12 +2037,38 @@ const styles = StyleSheet.create({
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
     paddingBottom: 12,
     marginBottom: 12,
   },
-  fecha: { fontSize: 13, color: colors.textLight },
+  cardFooterLeft: {
+    flex: 1,
+  },
+  fecha: { fontSize: 13, color: colors.textLight, marginBottom: 8 },
+  fechaProgramadaContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primaryLight + "20",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  fechaProgramadaLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
+    marginRight: 8,
+  },
+  fechaProgramada: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: "600",
+    flex: 1,
+  },
   monto: { fontSize: 15, fontWeight: "bold", color: colors.primary },
 
   actionButtons: { marginTop: 5 },
@@ -1686,14 +2077,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   btnFinalizar: {
-    flex: 5,
+    flex: 4.5,
     backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
   },
   btnCancelar: {
-    flex: 1,
+    flex: 1.1,
     backgroundColor: colors.error,
     paddingVertical: 12,
     borderRadius: 8,
@@ -1710,6 +2101,46 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
+  },
+  botonesContainer: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  btnCalificarCompacto: {
+    flex: 0.35,
+    backgroundColor: colors.warning,
+    paddingVertical: 11,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnAgregarFotosCompacto: {
+    flex: 0.65,
+    backgroundColor: "#10B981", // Verde para fotos de portfolio
+    paddingVertical: 11,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnDisabled: {
+    backgroundColor: colors.border,
+    opacity: 0.6,
+  },
+  btnTextDisabled: {
+    color: colors.textSecondary,
+    opacity: 0.7,
+  },
+  btnAgregarFotos: {
+    backgroundColor: "#10B981", // Verde para fotos de portfolio
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  btnAgregarFotosText: {
+    color: colors.white,
+    fontWeight: "600",
+    fontSize: 14,
   },
   btnTextWhite: { color: colors.white, fontWeight: "bold", fontSize: 15 },
   calificadoBadge: { alignItems: "center", paddingVertical: 8 },
@@ -1738,6 +2169,28 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: "center",
     marginBottom: 20,
+  },
+  modalFechaContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primaryLight + "20",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  modalFechaLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.text,
+    marginRight: 8,
+  },
+  modalFechaText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: "600",
+    flex: 1,
   },
   starsContainer: {
     flexDirection: "row",

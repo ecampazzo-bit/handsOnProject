@@ -12,8 +12,55 @@ import {
   ActivityIndicator,
   Switch,
   Image,
+  Modal,
+  FlatList,
 } from "react-native";
+import { Calendar, LocaleConfig } from "react-native-calendars";
 import { supabase } from "../services/supabaseClient";
+
+// Configurar calendario en español
+LocaleConfig.locales["es"] = {
+  monthNames: [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+  ],
+  monthNamesShort: [
+    "Ene.",
+    "Feb.",
+    "Mar.",
+    "Abr.",
+    "May.",
+    "Jun.",
+    "Jul.",
+    "Ago.",
+    "Sep.",
+    "Oct.",
+    "Nov.",
+    "Dic.",
+  ],
+  dayNames: [
+    "Domingo",
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+  ],
+  dayNamesShort: ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
+  today: "Hoy",
+};
+LocaleConfig.defaultLocale = "es";
 import { getCurrentUser, getCurrentUserId } from "../services/authService";
 import { colors } from "../constants/colors";
 import { Button } from "./Button";
@@ -67,6 +114,11 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
   const [emailVerificado, setEmailVerificado] = useState<boolean>(false);
   const [editingPhone, setEditingPhone] = useState(false);
   const [newPhone, setNewPhone] = useState("");
+  const [markedDates, setMarkedDates] = useState<any>({});
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showTrabajosModal, setShowTrabajosModal] = useState(false);
+  const [trabajosDelDia, setTrabajosDelDia] = useState<any[]>([]);
+  const [loadingTrabajos, setLoadingTrabajos] = useState(false);
   const [formData, setFormData] = useState<PrestadorData>({
     descripcion_profesional: null,
     años_experiencia: null,
@@ -83,7 +135,12 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
 
   useEffect(() => {
     loadUserData();
+    loadTrabajosProgramados();
   }, []);
+
+  useEffect(() => {
+    loadTrabajosProgramados();
+  }, [userData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -152,6 +209,231 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
       Alert.alert("Error", "Ocurrió un error al cargar los datos");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTrabajosProgramados = async () => {
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        console.log("❌ No hay userId disponible");
+        return;
+      }
+
+      console.log("🔍 Cargando trabajos programados para usuario:", userId);
+
+      // Obtener TODOS los trabajos donde el usuario es cliente (sin filtros de estado)
+      const { data: trabajosCliente, error: errorCliente } = await supabase
+        .from("trabajos")
+        .select("id, fecha_programada, fecha_inicio, estado, cliente_id")
+        .eq("cliente_id", userId);
+
+      if (errorCliente) {
+        console.error("❌ Error en trabajosCliente:", errorCliente);
+      }
+      console.log("✅ TODOS los trabajos como cliente:", trabajosCliente);
+
+      // Filtrar solo los que tienen fecha_programada
+      const todosCliente = (trabajosCliente || []).filter(
+        (t: any) => t.fecha_programada
+      );
+      console.log(
+        "✅ Trabajos como cliente CON fecha_programada:",
+        todosCliente
+      );
+
+      // Obtener trabajos donde el usuario es prestador
+      const { data: prestadorData } = await supabase
+        .from("prestadores")
+        .select("id")
+        .eq("usuario_id", userId)
+        .single();
+
+      console.log("✅ prestadorData:", prestadorData);
+
+      let todosPrestador: any[] = [];
+      if (prestadorData) {
+        // Traer TODOS los trabajos del prestador
+        const { data: trabajosPrest, error: errorPrest } = await supabase
+          .from("trabajos")
+          .select("id, fecha_programada, fecha_inicio, estado, prestador_id")
+          .eq("prestador_id", prestadorData.id);
+
+        if (errorPrest) {
+          console.error("❌ Error en trabajosPrest:", errorPrest);
+        }
+        console.log("✅ TODOS los trabajos como prestador:", trabajosPrest);
+
+        // Filtrar solo los que tienen fecha_programada
+        todosPrestador = (trabajosPrest || []).filter(
+          (t: any) => t.fecha_programada
+        );
+        console.log(
+          "✅ Trabajos como prestador CON fecha_programada:",
+          todosPrestador
+        );
+      }
+
+      // Crear objeto de fechas marcadas con múltiples puntos
+      const marked: any = {};
+
+      // Marcar fechas de trabajos como cliente (azul)
+      todosCliente?.forEach((trabajo: any) => {
+        const fecha = trabajo.fecha_programada || trabajo.fecha_inicio;
+        if (fecha) {
+          const fechaStr = new Date(fecha).toISOString().split("T")[0];
+          if (!marked[fechaStr]) {
+            marked[fechaStr] = {
+              dots: [],
+              marked: true,
+            };
+          }
+          // Agregar punto azul si no existe ya
+          if (
+            !marked[fechaStr].dots.some((dot: any) => dot.key === "cliente")
+          ) {
+            marked[fechaStr].dots.push({
+              key: "cliente",
+              color: "#2563EB", // Azul más visible
+            });
+          }
+        }
+      });
+
+      // Marcar fechas de trabajos como prestador (verde)
+      todosPrestador?.forEach((trabajo: any) => {
+        const fecha = trabajo.fecha_programada || trabajo.fecha_inicio;
+        if (fecha) {
+          const fechaStr = new Date(fecha).toISOString().split("T")[0];
+          if (!marked[fechaStr]) {
+            marked[fechaStr] = {
+              dots: [],
+              marked: true,
+            };
+          }
+          // Agregar punto verde si no existe ya
+          if (
+            !marked[fechaStr].dots.some((dot: any) => dot.key === "prestador")
+          ) {
+            marked[fechaStr].dots.push({
+              key: "prestador",
+              color: "#10B981", // Verde
+            });
+          }
+        }
+      });
+
+      console.log("📋 Fechas marcadas finales:", marked);
+      console.log("📊 Total fechas a marcar:", Object.keys(marked).length);
+      setMarkedDates(marked);
+    } catch (error) {
+      console.error("❌ Error al cargar trabajos programados:", error);
+    }
+  };
+
+  const handleDayPress = async (day: any) => {
+    const fechaStr = day.dateString;
+    setSelectedDate(fechaStr);
+    setLoadingTrabajos(true);
+    setShowTrabajosModal(true);
+
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) return;
+
+      // Obtener trabajos del día seleccionado
+      const fechaInicio = new Date(fechaStr);
+      fechaInicio.setHours(0, 0, 0, 0);
+      const fechaFin = new Date(fechaStr);
+      fechaFin.setHours(23, 59, 59, 999);
+
+      // Obtener trabajos como cliente
+      const { data: trabajosCliente, error: errorCliente } = await supabase
+        .from("trabajos")
+        .select(
+          `
+          id,
+          fecha_programada,
+          fecha_inicio,
+          estado,
+          monto_final,
+          cliente_id,
+          prestador_id,
+          solicitudes_servicio (
+            descripcion_problema,
+            servicios (nombre)
+          ),
+          cliente:users!trabajos_cliente_id_fkey (nombre, apellido),
+          prestador:prestadores (
+            users_public (nombre, apellido)
+          )
+        `
+        )
+        .eq("cliente_id", userId);
+
+      // Obtener trabajos como prestador
+      const { data: prestadorData } = await supabase
+        .from("prestadores")
+        .select("id")
+        .eq("usuario_id", userId)
+        .single();
+
+      let trabajosPrestador: any[] = [];
+      if (prestadorData) {
+        const { data: trabajosPrest, error: errorPrest } = await supabase
+          .from("trabajos")
+          .select(
+            `
+            id,
+            fecha_programada,
+            fecha_inicio,
+            estado,
+            monto_final,
+            cliente_id,
+            prestador_id,
+            solicitudes_servicio (
+              descripcion_problema,
+              servicios (nombre)
+            ),
+            cliente:users!trabajos_cliente_id_fkey (nombre, apellido),
+            prestador:prestadores (
+              users_public (nombre, apellido)
+            )
+          `
+          )
+          .eq("prestador_id", prestadorData.id);
+
+        if (!errorPrest) {
+          trabajosPrestador = trabajosPrest || [];
+        }
+      }
+
+      const trabajos = [...(trabajosCliente || []), ...trabajosPrestador];
+      const error = errorCliente;
+
+      if (error) {
+        console.error("Error al cargar trabajos del día:", error);
+        Alert.alert("Error", "No se pudieron cargar los trabajos del día");
+        return;
+      }
+
+      // Filtrar trabajos que realmente corresponden a ese día
+      const trabajosFiltrados =
+        trabajos?.filter((trabajo) => {
+          const fechaTrabajo = trabajo.fecha_programada || trabajo.fecha_inicio;
+          if (!fechaTrabajo) return false;
+          const fechaTrabajoStr = new Date(fechaTrabajo)
+            .toISOString()
+            .split("T")[0];
+          return fechaTrabajoStr === fechaStr;
+        }) || [];
+
+      setTrabajosDelDia(trabajosFiltrados);
+    } catch (error) {
+      console.error("Error al cargar trabajos del día:", error);
+      Alert.alert("Error", "Ocurrió un error al cargar los trabajos");
+    } finally {
+      setLoadingTrabajos(false);
     }
   };
 
@@ -481,6 +763,51 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
         </TouchableOpacity>
       </View>
 
+      {/* Calendario de Trabajos Programados */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>📅 Trabajos Programados</Text>
+        <Calendar
+          onDayPress={handleDayPress}
+          markedDates={markedDates}
+          markingType="multi-dot"
+          theme={{
+            backgroundColor: colors.white,
+            calendarBackground: colors.white,
+            textSectionTitleColor: colors.text,
+            selectedDayBackgroundColor: colors.primary,
+            selectedDayTextColor: colors.white,
+            todayTextColor: colors.primary,
+            dayTextColor: colors.text,
+            textDisabledColor: colors.textLight,
+            dotColor: colors.primary,
+            selectedDotColor: colors.white,
+            arrowColor: colors.primary,
+            monthTextColor: colors.text,
+            textDayFontWeight: "500",
+            textMonthFontWeight: "bold",
+            textDayHeaderFontWeight: "600",
+            textDayFontSize: 14,
+            textMonthFontSize: 16,
+            textDayHeaderFontSize: 13,
+          }}
+          style={styles.calendar}
+        />
+        {/* Leyenda de colores */}
+        <View style={styles.legendContainer}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#2563EB" }]} />
+            <Text style={styles.legendText}>Trabajos solicitados</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#10B981" }]} />
+            <Text style={styles.legendText}>Trabajos a realizar</Text>
+          </View>
+        </View>
+        <Text style={styles.calendarHint}>
+          Toca un día para ver los detalles
+        </Text>
+      </View>
+
       {/* Información Básica del Usuario - Para todos los usuarios */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Información Personal</Text>
@@ -493,9 +820,9 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Email:</Text>
           <View style={styles.phoneRow}>
-            <Text 
-              style={styles.infoValue} 
-              numberOfLines={1} 
+            <Text
+              style={styles.infoValue}
+              numberOfLines={1}
               ellipsizeMode="tail"
             >
               {userData?.email}
@@ -930,6 +1257,114 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
           </View>
         </>
       )}
+
+      {/* Modal de Trabajos del Día */}
+      <Modal
+        visible={showTrabajosModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTrabajosModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Trabajos del{" "}
+              {selectedDate
+                ? new Date(selectedDate).toLocaleDateString("es-AR", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })
+                : ""}
+            </Text>
+
+            {loadingTrabajos ? (
+              <ActivityIndicator
+                size="large"
+                color={colors.primary}
+                style={styles.modalLoading}
+              />
+            ) : trabajosDelDia.length === 0 ? (
+              <Text style={styles.modalEmptyText}>
+                No hay trabajos programados para este día
+              </Text>
+            ) : (
+              <FlatList
+                data={trabajosDelDia}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => {
+                  const userId = userData?.id;
+                  const esCliente = item.cliente_id === userId;
+                  const otroUsuario = esCliente
+                    ? item.prestador?.users_public
+                    : item.cliente;
+
+                  return (
+                    <View
+                      style={[
+                        styles.trabajoItem,
+                        esCliente
+                          ? styles.trabajoCliente
+                          : styles.trabajoPrestador,
+                      ]}
+                    >
+                      <View style={styles.trabajoHeader}>
+                        <Text style={styles.trabajoServicio}>
+                          {item.solicitudes_servicio?.servicios?.nombre ||
+                            "Servicio"}
+                        </Text>
+                        <View
+                          style={[
+                            styles.trabajoBadge,
+                            esCliente
+                              ? styles.badgeCliente
+                              : styles.badgePrestador,
+                          ]}
+                        >
+                          <Text style={styles.badgeText}>
+                            {esCliente ? "Solicitado" : "A realizar"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.trabajoUsuario}>
+                        {esCliente ? "Prestador: " : "Cliente: "}
+                        {otroUsuario?.nombre} {otroUsuario?.apellido}
+                      </Text>
+                      <Text style={styles.trabajoEstado}>
+                        Estado: {item.estado}
+                      </Text>
+                      {item.monto_final && (
+                        <Text style={styles.trabajoMonto}>
+                          ${item.monto_final}
+                        </Text>
+                      )}
+                      <TouchableOpacity
+                        style={styles.verTrabajoButton}
+                        onPress={() => {
+                          setShowTrabajosModal(false);
+                          navigation.navigate("MisTrabajos");
+                        }}
+                      >
+                        <Text style={styles.verTrabajoButtonText}>
+                          Ver Trabajo →
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }}
+                style={styles.trabajosList}
+              />
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowTrabajosModal(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -1101,7 +1536,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   phoneInput: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
@@ -1194,5 +1629,157 @@ const styles = StyleSheet.create({
   },
   convertButton: {
     marginTop: 8,
+  },
+  calendar: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 10,
+  },
+  legendContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  calendarHint: {
+    fontSize: 12,
+    color: colors.textLight,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 20,
+    width: "90%",
+    maxHeight: "80%",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  modalLoading: {
+    marginVertical: 40,
+  },
+  modalEmptyText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginVertical: 40,
+  },
+  trabajosList: {
+    maxHeight: 400,
+  },
+  trabajoItem: {
+    backgroundColor: colors.backgroundSecondary,
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  trabajoCliente: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  trabajoPrestador: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#10B981",
+  },
+  trabajoHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  trabajoServicio: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: colors.text,
+    flex: 1,
+  },
+  trabajoBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  badgeCliente: {
+    backgroundColor: colors.primary,
+  },
+  badgePrestador: {
+    backgroundColor: "#10B981",
+  },
+  badgeText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  trabajoUsuario: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 5,
+  },
+  trabajoEstado: {
+    fontSize: 13,
+    color: colors.primary,
+    marginBottom: 5,
+  },
+  trabajoMonto: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.success,
+    marginBottom: 8,
+  },
+  verTrabajoButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginTop: 8,
+    alignItems: "center",
+  },
+  verTrabajoButtonText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  modalCloseButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 20,
+    alignItems: "center",
+  },
+  modalCloseButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

@@ -718,14 +718,27 @@ export const aceptarCotizacion = async (
     console.log(`Solicitud ${solicitudId} marcada como aceptada`);
 
     // 5. Crear el registro de Trabajo
-    const { error: trabajoError } = await supabase.from("trabajos").insert({
+    // Si la cotización tiene fecha_disponible, usarla como fecha_programada
+    const trabajoData: any = {
       solicitud_id: solicitudId,
       cotizacion_id: cotizacionId,
       prestador_id: cotiz.prestador_id,
       cliente_id: solicitud.cliente_id,
       estado: "programado",
       monto_final: cotiz.precio_ofrecido,
-    });
+    };
+
+    // Transferir fecha_disponible de la cotización a fecha_programada del trabajo
+    if (cotiz.fecha_disponible) {
+      trabajoData.fecha_programada = cotiz.fecha_disponible;
+      console.log(
+        `Estableciendo fecha_programada del trabajo: ${cotiz.fecha_disponible}`
+      );
+    }
+
+    const { error: trabajoError } = await supabase
+      .from("trabajos")
+      .insert(trabajoData);
 
     if (trabajoError) {
       console.error("Error al crear trabajo:", trabajoError);
@@ -1100,22 +1113,24 @@ export const finalizarTrabajo = async (
           await createPortfolioItem({
             prestadorId: prestadorId,
             servicioId: servicioId,
-            titulo: `${nombreServicioFinal} - ${new Date().toLocaleDateString("es-AR")}`,
-            descripcion: `Trabajo finalizado el ${new Date().toLocaleDateString("es-AR", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            })}`,
+            titulo: `${nombreServicioFinal} - ${new Date().toLocaleDateString(
+              "es-AR"
+            )}`,
+            descripcion: `Trabajo finalizado el ${new Date().toLocaleDateString(
+              "es-AR",
+              {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              }
+            )}`,
             fotosUrls: fotosPortfolio,
             fechaTrabajo: new Date().toISOString().split("T")[0],
             destacado: false,
           });
           console.log("✅ Item agregado al portfolio");
         } catch (portfolioError) {
-          console.error(
-            "Error al agregar item al portfolio:",
-            portfolioError
-          );
+          console.error("Error al agregar item al portfolio:", portfolioError);
           // No lanzar error, ya que el trabajo se finalizó correctamente
         }
       }

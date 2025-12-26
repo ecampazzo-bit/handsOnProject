@@ -43,6 +43,9 @@ export const LoginScreen: React.FC = () => {
   const [showResendButton, setShowResendButton] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [userName, setUserName] = useState<string>("");
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [sendingResetEmail, setSendingResetEmail] = useState(false);
 
   const {
     control,
@@ -107,6 +110,64 @@ export const LoginScreen: React.FC = () => {
       );
     } finally {
       setResendingEmail(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail.trim()) {
+      Alert.alert(
+        "Email requerido",
+        "Por favor, ingresa tu email para recibir las instrucciones de reset."
+      );
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(forgotPasswordEmail.trim())) {
+      Alert.alert("Email inválido", "Por favor, ingresa un email válido.");
+      return;
+    }
+
+    setSendingResetEmail(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        forgotPasswordEmail.trim(),
+        {
+          redirectTo: "https://localhost:3000/auth/reset-password",
+        }
+      );
+
+      if (error) {
+        Alert.alert(
+          "Error",
+          error.message ||
+            "No se pudo enviar el email de reset. Por favor, intenta nuevamente."
+        );
+        return;
+      }
+
+      Alert.alert(
+        "Email enviado",
+        `Se ha enviado un email a ${forgotPasswordEmail.trim()} con las instrucciones para restablecer tu contraseña. Por favor, revisa tu bandeja de entrada (y la carpeta de spam).`,
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              setShowForgotPasswordModal(false);
+              setForgotPasswordEmail("");
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error.message ||
+          "Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente."
+      );
+    } finally {
+      setSendingResetEmail(false);
     }
   };
 
@@ -179,34 +240,36 @@ export const LoginScreen: React.FC = () => {
 
       if (user) {
         setShowResendButton(false); // Ocultar el botón si el login fue exitoso
-        
+
         // Verificar si el email está verificado y mostrar mensaje de bienvenida
         const checkEmailVerification = async () => {
           try {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            
+            const {
+              data: { user: authUser },
+            } = await supabase.auth.getUser();
+
             if (authUser?.email_confirmed_at) {
               // Verificar si ya mostramos el mensaje de bienvenida para este usuario
               const welcomeShown = await AsyncStorage.getItem(
                 `${WELCOME_MESSAGE_KEY}_${authUser.id}`
               );
-              
+
               // Obtener nombre del usuario para el mensaje de bienvenida
               const { data: userData } = await supabase
                 .from("users")
                 .select("nombre")
                 .eq("id", authUser.id)
                 .single();
-              
+
               const name = userData?.nombre || "";
               setUserName(name);
-              
+
               // Verificar si el email fue confirmado recientemente (últimas 24 horas)
               const confirmedAt = new Date(authUser.email_confirmed_at);
               const now = new Date();
-              const hoursSinceConfirmation = 
+              const hoursSinceConfirmation =
                 (now.getTime() - confirmedAt.getTime()) / (1000 * 60 * 60);
-              
+
               // Mostrar mensaje si fue confirmado recientemente y no lo hemos mostrado antes
               if (hoursSinceConfirmation < 24 && !welcomeShown) {
                 setShowWelcomeModal(true);
@@ -229,7 +292,7 @@ export const LoginScreen: React.FC = () => {
             navigation.replace("Home");
           }
         };
-        
+
         await checkEmailVerification();
       }
     } catch (error) {
@@ -297,9 +360,7 @@ export const LoginScreen: React.FC = () => {
           <View style={styles.helpLinks}>
             <TouchableOpacity
               style={styles.helpLink}
-              onPress={() =>
-                Alert.alert("Info", "Funcionalidad próximamente disponible")
-              }
+              onPress={() => setShowForgotPasswordModal(true)}
             >
               <Text style={styles.helpLinkText}>¿Olvidaste tu contraseña?</Text>
             </TouchableOpacity>
@@ -365,7 +426,8 @@ export const LoginScreen: React.FC = () => {
             </Text>
             <Text style={styles.welcomeMessage}>
               Tu email ha sido verificado exitosamente.{"\n\n"}
-              Estamos felices de tenerte en ofiSí. Ahora puedes disfrutar de todas las funcionalidades de la app.
+              Estamos felices de tenerte en ofiSí. Ahora puedes disfrutar de
+              todas las funcionalidades de la app.
             </Text>
             <Button
               title="¡Empezar!"
@@ -377,6 +439,71 @@ export const LoginScreen: React.FC = () => {
             />
           </View>
         </View>
+      </Modal>
+
+      {/* Modal de Olvidaste tu Contraseña */}
+      <Modal
+        visible={showForgotPasswordModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowForgotPasswordModal(false);
+          setForgotPasswordEmail("");
+        }}
+      >
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, styles.forgotPasswordModal]}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  setShowForgotPasswordModal(false);
+                  setForgotPasswordEmail("");
+                }}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.modalTitle}>Restablecer Contraseña</Text>
+              <Text style={styles.modalSubtitle}>
+                Ingresa tu email y te enviaremos un enlace para restablecer tu
+                contraseña.
+              </Text>
+
+              <View style={styles.forgotPasswordForm}>
+                <Input
+                  placeholder="Correo electrónico"
+                  value={forgotPasswordEmail}
+                  onChangeText={setForgotPasswordEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  icon={<Text style={styles.icon}>📧</Text>}
+                />
+              </View>
+
+              <View style={styles.forgotPasswordButtons}>
+                <Button
+                  title="Cancelar"
+                  onPress={() => {
+                    setShowForgotPasswordModal(false);
+                    setForgotPasswordEmail("");
+                  }}
+                  disabled={sendingResetEmail}
+                  style={styles.cancelButton}
+                />
+                <Button
+                  title={sendingResetEmail ? "Enviando..." : "Enviar"}
+                  onPress={handleForgotPassword}
+                  disabled={sendingResetEmail}
+                  style={styles.sendButton}
+                />
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </KeyboardAvoidingView>
   );
@@ -524,5 +651,54 @@ const styles = StyleSheet.create({
   },
   welcomeButton: {
     width: "100%",
+  },
+  forgotPasswordModal: {
+    maxHeight: "80%",
+    justifyContent: "flex-start",
+    marginTop: 60,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  forgotPasswordForm: {
+    width: "100%",
+    marginBottom: 24,
+  },
+  forgotPasswordButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+  },
+  sendButton: {
+    flex: 1,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.errorLight,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  closeButtonText: {
+    color: colors.error,
+    fontSize: 20,
+    fontWeight: "bold",
   },
 });
