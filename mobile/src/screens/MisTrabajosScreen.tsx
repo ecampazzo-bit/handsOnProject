@@ -947,7 +947,7 @@ export const MisTrabajosScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.navigate("Home")}>
           <Text style={styles.backButton}>← Volver</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Mis Trabajos</Text>
@@ -1325,9 +1325,12 @@ export const MisTrabajosScreen: React.FC = () => {
               {/* Botones de acción */}
               <View style={styles.actionButtons}>
                 {/* Botón de finalizar y cancelar para prestadores */}
-                {trabajo.es_prestador &&
-                  trabajo.estado !== "completado" &&
-                  trabajo.estado !== "cancelado" && (
+                {trabajo.estado !== "completado" &&
+                  trabajo.estado !== "cancelado" &&
+                  ((puedeSerPrestadorYCliente &&
+                    activeRoleTab === "prestador") ||
+                    (!puedeSerPrestadorYCliente &&
+                      user?.tipo_usuario === "prestador")) && (
                     <View style={styles.actionButtonsRow}>
                       <TouchableOpacity
                         style={styles.btnFinalizar}
@@ -1347,13 +1350,15 @@ export const MisTrabajosScreen: React.FC = () => {
                   )}
 
                 {/* Botón de finalizar y cancelar para clientes */}
-                {trabajo.es_cliente &&
-                  trabajo.estado !== "completado" &&
-                  trabajo.estado !== "cancelado" && (
+                {trabajo.estado !== "completado" &&
+                  trabajo.estado !== "cancelado" &&
+                  ((puedeSerPrestadorYCliente && activeRoleTab === "cliente") ||
+                    (!puedeSerPrestadorYCliente &&
+                      user?.tipo_usuario === "cliente")) && (
                     <View style={styles.actionButtonsRow}>
                       <TouchableOpacity
                         style={styles.btnFinalizar}
-                        onPress={() => handleFinalizar(trabajo)}
+                        onPress={() => handleFinalizarComoCliente(trabajo.id)}
                       >
                         <Text style={styles.btnTextWhite}>
                           ✓ Finalizar Trabajo
