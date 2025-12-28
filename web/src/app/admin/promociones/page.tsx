@@ -191,43 +191,45 @@ export default function PromocionesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/admin" className="text-blue-600 hover:text-blue-700">
-              ← Volver al Dashboard
-            </Link>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Gestión de Promociones
-            </h1>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => loadPromociones()}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2"
-              title="Actualizar estadísticas"
-            >
-              🔄 Refrescar
-            </button>
-            <button
-              onClick={() => {
-                setEditingPromocion(null);
-                setShowForm(true);
-              }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-            >
-              + Nueva Promoción
-            </button>
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Link href="/admin" className="text-blue-600 hover:text-blue-700 text-sm sm:text-base">
+                ← Volver al Dashboard
+              </Link>
+              <h1 className="text-xl sm:text-2xl font-bold text-black">
+                Gestión de Promociones
+              </h1>
+            </div>
+            <div className="flex flex-wrap gap-2 sm:gap-3">
+              <button
+                onClick={() => loadPromociones()}
+                className="px-3 sm:px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm sm:text-base"
+                title="Actualizar estadísticas"
+              >
+                🔄 Refrescar
+              </button>
+              <button
+                onClick={() => {
+                  setEditingPromocion(null);
+                  setShowForm(true);
+                }}
+                className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm sm:text-base whitespace-nowrap"
+              >
+                + Nueva Promoción
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Filtros */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 Buscar
               </label>
               <input
@@ -235,18 +237,18 @@ export default function PromocionesPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar por título o código..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 Estado
               </label>
               <select
                 value={filterEstado}
                 onChange={(e) => setFilterEstado(e.target.value as any)}
                 aria-label="Filtrar por estado"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white"
               >
                 <option value="all">Todos</option>
                 <option value="activa">Activas</option>
@@ -262,19 +264,19 @@ export default function PromocionesPage() {
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Cargando promociones...</p>
+            <p className="mt-4 text-black">Cargando promociones...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredPromociones.length === 0 ? (
               <div className="col-span-full text-center py-12">
-                <p className="text-gray-600">No se encontraron promociones</p>
+                <p className="text-black">No se encontraron promociones</p>
               </div>
             ) : (
               filteredPromociones.map((promocion) => (
                 <div
                   key={promocion.id}
-                  className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow"
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
                 >
                   {/* Imagen */}
                   {promocion.imagen_url && (
@@ -289,13 +291,13 @@ export default function PromocionesPage() {
                   )}
 
                   {/* Contenido */}
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">
+                  <div className="p-4 sm:p-6">
+                    <div className="flex justify-between items-start mb-2 gap-2">
+                      <h3 className="text-base sm:text-lg font-semibold text-black flex-1 min-w-0 break-words">
                         {promocion.titulo}
                       </h3>
                       <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getEstadoBadgeColor(
+                        className={`px-2 py-1 text-xs font-semibold rounded-full flex-shrink-0 ${getEstadoBadgeColor(
                           promocion.estado
                         )}`}
                       >
@@ -304,18 +306,18 @@ export default function PromocionesPage() {
                     </div>
 
                     {promocion.descripcion && (
-                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                      <p className="text-sm text-gray-700 mb-2 line-clamp-2">
                         {promocion.descripcion}
                       </p>
                     )}
 
                     {promocion.codigo_cupon && (
-                      <p className="text-sm font-mono text-blue-600 mb-2">
+                      <p className="text-sm font-mono text-blue-600 mb-2 break-all">
                         Código: {promocion.codigo_cupon}
                       </p>
                     )}
 
-                    <div className="text-xs text-gray-500 space-y-1 mb-3">
+                    <div className="text-xs text-gray-600 space-y-1 mb-3">
                       <p>
                         Público:{" "}
                         {getPublicoObjetivoLabel(promocion.publico_objetivo)}
@@ -340,25 +342,25 @@ export default function PromocionesPage() {
                     </div>
 
                     {/* Acciones */}
-                    <div className="flex gap-2 mt-4">
+                    <div className="flex flex-wrap gap-2 mt-4">
                       <button
                         onClick={() => {
                           setEditingPromocion(promocion);
                           setShowForm(true);
                         }}
-                        className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+                        className="flex-1 min-w-[80px] px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => handleToggleEstado(promocion)}
-                        className="flex-1 px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
+                        className="flex-1 min-w-[80px] px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-xs sm:text-sm"
                       >
                         {promocion.estado === "activa" ? "Pausar" : "Activar"}
                       </button>
                       <button
                         onClick={() => handleDelete(promocion.id)}
-                        className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
+                        className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-xs sm:text-sm"
                       >
                         Eliminar
                       </button>

@@ -5,27 +5,28 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 text-white overflow-hidden">
-        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))]"></div>
+      <section className="relative bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden">
+        <div className="absolute inset-0 bg-grid-blue-500/5 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))]"></div>
         <div className="container mx-auto px-4 py-20 md:py-32 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
             <div className="mb-8 flex justify-center">
-              <Image
-                src="/logo-blanco.png"
+              <img
+                src="/logo-color.png"
                 alt="ofiSí Logo"
                 width={200}
-                height={120}
+                height={200}
                 className="h-auto"
-                priority
+                style={{ maxWidth: "200px", height: "auto" }}
               />
             </div>
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              Encuentra el profesional
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight text-gray-900">
+              Encuentra el oficio o servicio
               <br />
-              <span className="text-orange-400">que necesitas</span>
+              <span className="text-orange-500">que necesitas</span>
             </h1>
-            <p className="text-xl md:text-2xl mb-8 text-blue-100">
-              La plataforma que conecta clientes con profesionales de servicios.
+            <p className="text-xl md:text-2xl mb-8 text-gray-600">
+              La plataforma para encontrar todos los oficios o servicios cerca
+              tuyo.
               <br />
               Rápido, seguro y confiable.
             </p>
@@ -38,7 +39,7 @@ export default function Home() {
               </Link>
               <Link
                 href="#features"
-                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-8 py-4 rounded-full text-lg font-semibold transition-all border border-white/30"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-all border border-blue-600 shadow-lg hover:shadow-xl"
               >
                 Ver Funcionalidades
               </Link>
@@ -67,9 +68,7 @@ export default function Home() {
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
               Todo lo que necesitas en un solo lugar
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Una plataforma completa para conectar profesionales con clientes
-            </p>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto"></p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
@@ -248,7 +247,7 @@ export default function Home() {
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
                 <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-                  ¿Eres profesional?
+                  ¿Quieres ofrecer tus servicios?
                   <br />
                   <span className="text-blue-600">Únete a ofiSí</span>
                 </h2>
@@ -306,17 +305,9 @@ export default function Home() {
                     </div>
                   </li>
                 </ul>
-                <Link
-                  href="#download"
-                  className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-all transform hover:scale-105 shadow-lg"
-                >
-                  Registrarse como Profesional
-                </Link>
               </div>
               <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-3xl p-8 text-white">
-                <h3 className="text-2xl font-bold mb-6">
-                  Beneficios para Profesionales
-                </h3>
+                <h3 className="text-2xl font-bold mb-6">Beneficios</h3>
                 <div className="space-y-4">
                   <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
                     <div className="font-bold text-lg mb-2">
@@ -357,6 +348,124 @@ export default function Home() {
         </div>
       </section>
 
+      {/* For Clients Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+                  ¿Quieres contratar un oficio o servicio?
+                  <br />
+                  <span className="text-amber-500">Encuéntralo en ofiSí</span>
+                </h2>
+                <p className="text-xl text-gray-600 mb-8">
+                  Encuentra el oficio o servicio que necesitas cerca de ti de
+                  forma rápida, segura y confiable.
+                </p>
+                <ul className="space-y-4 mb-8">
+                  <li className="flex items-start">
+                    <span className="text-amber-500 text-2xl mr-4">✓</span>
+                    <div>
+                      <h4 className="font-bold text-gray-900 mb-1">
+                        Busca y Compara
+                      </h4>
+                      <p className="text-gray-600">
+                        Encuentra oficios o servicios por categorías o ubicación
+                        y compara múltiples opciones.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-amber-500 text-2xl mr-4">✓</span>
+                    <div>
+                      <h4 className="font-bold text-gray-900 mb-1">
+                        Solicita Presupuestos
+                      </h4>
+                      <p className="text-gray-600">
+                        Recibe múltiples cotizaciones para comparar precios y
+                        elegir la mejor opción.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-amber-500 text-2xl mr-4">✓</span>
+                    <div>
+                      <h4 className="font-bold text-gray-900 mb-1">
+                        Califica y Opina
+                      </h4>
+                      <p className="text-gray-600">
+                        Deja tu opinión y califica la experiencia para ayudar a
+                        otros usuarios.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-amber-500 text-2xl mr-4">✓</span>
+                    <div>
+                      <h4 className="font-bold text-gray-900 mb-1">
+                        Seguimiento en Tiempo Real
+                      </h4>
+                      <p className="text-gray-600">
+                        Monitorea el progreso de tu trabajo desde la solicitud
+                        hasta la finalización.
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-3xl p-8 text-white">
+                <h3 className="text-2xl font-bold mb-6">Beneficios</h3>
+                <div className="space-y-4">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
+                    <div className="font-bold text-lg mb-2">
+                      🔍 Encuentra Rápido
+                    </div>
+                    <p className="text-amber-100">
+                      Busca por categoría o ubicación cerca de ti
+                    </p>
+                  </div>
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
+                    <div className="font-bold text-lg mb-2">
+                      💰 Mejor Precio
+                    </div>
+                    <p className="text-amber-100">
+                      Compara múltiples presupuestos y elige el mejor
+                    </p>
+                  </div>
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
+                    <div className="font-bold text-lg mb-2">⭐ Confiable</div>
+                    <p className="text-amber-100">
+                      Revisa calificaciones y reseñas antes de contratar
+                    </p>
+                  </div>
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
+                    <div className="font-bold text-lg mb-2">🛡️ Seguro</div>
+                    <p className="text-amber-100">
+                      Trabajamos solo con personas verificadas
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Button Section */}
+      <section className="py-12 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <Link
+              href="#download"
+              className="inline-block bg-gradient-to-r from-blue-600 to-orange-500 hover:from-blue-700 hover:to-orange-600 text-white px-12 py-5 rounded-full text-xl font-semibold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+            >
+              Crea tu usuario gratis
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Security & Trust Section */}
       <section className="py-20 bg-gray-900 text-white">
         <div className="container mx-auto px-4">
@@ -380,17 +489,18 @@ export default function Home() {
               <div>
                 <div className="text-5xl mb-4">✅</div>
                 <h3 className="text-xl font-bold mb-2">
-                  Profesionales Verificados
+                  Oficios/servicios Verificados
                 </h3>
                 <p className="text-gray-400">
-                  Solo trabajamos con profesionales confiables
+                  Solo trabajamos con personas verificadas y confiables
                 </p>
               </div>
               <div>
                 <div className="text-5xl mb-4">💳</div>
                 <h3 className="text-xl font-bold mb-2">Pagos Seguros</h3>
                 <p className="text-gray-400">
-                  Protegemos tus transacciones y datos
+                  Los pagos se acuerdan directamente entre el cliente y quien
+                  presta el servicio
                 </p>
               </div>
             </div>
@@ -408,17 +518,23 @@ export default function Home() {
             ¿Listo para empezar?
           </h2>
           <p className="text-xl mb-8 text-blue-100 max-w-2xl mx-auto">
-            Descarga la app y comienza a encontrar profesionales o a ofrecer tus
-            servicios hoy mismo.
+            Descarga la app y comienza a encontrar oficios/servicios o a ofrecer
+            tus servicios hoy mismo.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button className="bg-white text-blue-600 px-8 py-4 rounded-full text-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 shadow-lg flex items-center gap-3">
+            <button
+              disabled
+              className="bg-white/50 text-blue-600/70 px-8 py-4 rounded-full text-lg font-semibold cursor-not-allowed shadow-lg flex items-center gap-3 opacity-75"
+            >
               <span className="text-2xl">📱</span>
-              <span>Descargar para iOS</span>
+              <span>Próximamente en App Store</span>
             </button>
-            <button className="bg-white text-blue-600 px-8 py-4 rounded-full text-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 shadow-lg flex items-center gap-3">
+            <button
+              disabled
+              className="bg-white/50 text-blue-600/70 px-8 py-4 rounded-full text-lg font-semibold cursor-not-allowed shadow-lg flex items-center gap-3 opacity-75"
+            >
               <span className="text-2xl">🤖</span>
-              <span>Descargar para Android</span>
+              <span>Próximamente en Google Play</span>
             </button>
           </div>
           <p className="mt-8 text-blue-200 text-sm">
@@ -433,12 +549,13 @@ export default function Home() {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="mb-4">
-                <Image
+                <img
                   src="/logo-blanco.png"
                   alt="ofiSí Logo"
                   width={120}
                   height={72}
                   className="h-auto"
+                  style={{ maxWidth: "120px", height: "auto" }}
                 />
               </div>
               <p className="text-gray-400">

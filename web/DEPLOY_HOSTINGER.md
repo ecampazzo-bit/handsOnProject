@@ -70,3 +70,5 @@ Si Hostinger requiere configuración específica:
 
 4. **Puerto**: Hostinger puede asignar un puerto específico. Verifica en la documentación de Hostinger cómo configurar el puerto para aplicaciones Node.js.
 
+5. **TailwindCSS en producción**: Para que los estilos de Tailwind se generen en el build de producción, asegúrate de que `tailwindcss`, `postcss` y `autoprefixer` estén instalados durante el build. En este proyecto se han movido a `dependencies` en [web/package.json](web/package.json) para que Hostinger los instale incluso con `NODE_ENV=production`. Si no se instalan, la página se verá “sin estilos”.
+
