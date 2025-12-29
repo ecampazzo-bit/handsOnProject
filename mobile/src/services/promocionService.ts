@@ -79,6 +79,53 @@ export const getPromocionesActivas = async (
   }
 };
 
+export interface PromocionConDistancia extends Promocion {
+  distancia_km?: number | null;
+}
+
+export const getPromocionesActivasPorProximidad = async (
+  latitud: number,
+  longitud: number,
+  tipoUsuario: "cliente" | "prestador" | "ambos" | null = null,
+  categoriaId: number | null = null,
+  radioKm: number = 50
+): Promise<PromocionConDistancia[]> => {
+  try {
+    console.log("📍 Obteniendo promociones por proximidad:", {
+      latitud,
+      longitud,
+      tipoUsuario,
+      categoriaId,
+      radioKm,
+    });
+
+    const { data, error } = await supabase.rpc("get_promociones_por_proximidad", {
+      p_latitud: latitud,
+      p_longitud: longitud,
+      p_radio_km: radioKm,
+      p_tipo_usuario: tipoUsuario,
+      p_categoria_id: categoriaId,
+    });
+
+    if (error) {
+      console.error("Error al obtener promociones por proximidad:", error);
+      // Si falla la RPC, intentar con el método tradicional
+      console.log("⚠️ Fallback a método tradicional sin geolocalización");
+      return await getPromocionesActivas(tipoUsuario);
+    }
+
+    const promociones = (data || []) as PromocionConDistancia[];
+    console.log(`✅ Se encontraron ${promociones.length} promociones dentro del radio de ${radioKm}km`);
+
+    return promociones;
+  } catch (error) {
+    console.error("Error en getPromocionesActivasPorProximidad:", error);
+    // Si hay error, intentar con el método tradicional
+    console.log("⚠️ Fallback a método tradicional sin geolocalización");
+    return await getPromocionesActivas(tipoUsuario);
+  }
+};
+
 export const registrarVistaPromocion = async (promocionId: string): Promise<void> => {
   try {
     console.log("📊 Registrando vista de promoción:", promocionId);

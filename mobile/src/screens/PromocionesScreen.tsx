@@ -15,8 +15,10 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
+import * as Location from "expo-location";
 import {
   getPromocionesActivas,
+  getPromocionesActivasPorProximidad,
   registrarVistaPromocion,
   registrarClickPromocion,
   Promocion,
@@ -34,6 +36,7 @@ export const PromocionesScreen: React.FC = () => {
   const [tipoUsuario, setTipoUsuario] = useState<
     "cliente" | "prestador" | "ambos" | null
   >(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -70,10 +73,49 @@ export const PromocionesScreen: React.FC = () => {
       const tipo = user?.tipo_usuario || null;
       setTipoUsuario(tipo as "cliente" | "prestador" | "ambos" | null);
 
-      // Cargar promociones activas
-      const promocionesActivas = await getPromocionesActivas(
-        tipo as "cliente" | "prestador" | "ambos" | null
-      );
+      // Intentar obtener ubicación del usuario
+      let promocionesActivas: Promocion[] = [];
+      
+      try {
+        // Solicitar permisos de ubicación
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        
+        if (status === "granted") {
+          setLocationPermissionGranted(true);
+          
+          // Obtener ubicación actual
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          
+          const { latitude, longitude } = location.coords;
+          console.log("📍 Ubicación obtenida:", { latitude, longitude });
+          
+          // Cargar promociones filtradas por proximidad (radio de 50km por defecto)
+          promocionesActivas = await getPromocionesActivasPorProximidad(
+            latitude,
+            longitude,
+            tipo as "cliente" | "prestador" | "ambos" | null,
+            null, // categoriaId - null para todas las categorías
+            50 // radioKm - 50km por defecto
+          );
+        } else {
+          console.log("⚠️ Permisos de ubicación no concedidos, mostrando promociones globales");
+          setLocationPermissionGranted(false);
+          // Si no hay permisos, usar método tradicional (promociones globales)
+          promocionesActivas = await getPromocionesActivas(
+            tipo as "cliente" | "prestador" | "ambos" | null
+          );
+        }
+      } catch (locationError) {
+        console.error("Error al obtener ubicación:", locationError);
+        setLocationPermissionGranted(false);
+        // Si hay error con la ubicación, usar método tradicional
+        promocionesActivas = await getPromocionesActivas(
+          tipo as "cliente" | "prestador" | "ambos" | null
+        );
+      }
+
       setPromociones(promocionesActivas);
       setCurrentIndex(0);
 
