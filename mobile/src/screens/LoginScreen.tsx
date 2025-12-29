@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
     textAlign: "center",
   },
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   icon: {
-    fontSize: 20,
+    fontSize: 18,
   },
   helpLinks: {
     flexDirection: "row",
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   },
   helpLinkText: {
     color: colors.primary,
-    fontSize: 14,
+    fontSize: 12,
   },
   helpLinkTextDisabled: {
     color: colors.textLight,
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
   },
   resendEmailText: {
     color: colors.error,
-    fontSize: 14,
+    fontSize: 12,
     marginBottom: 12,
     textAlign: "center",
     fontWeight: "500",
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   },
   resendEmailButtonText: {
     color: colors.primary,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
   resendEmailButtonTextDisabled: {
@@ -593,11 +593,11 @@ const styles = StyleSheet.create({
   },
   registerLinkText: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 12,
   },
   registerLinkButton: {
     color: colors.primary,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
   modalOverlay: {
@@ -633,20 +633,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   welcomeIcon: {
-    fontSize: 48,
+    fontSize: 42,
   },
   welcomeTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
     color: colors.text,
     marginBottom: 16,
     textAlign: "center",
   },
   welcomeMessage: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 20,
     marginBottom: 24,
   },
   welcomeButton: {
@@ -658,14 +658,14 @@ const styles = StyleSheet.create({
     marginTop: 60,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "bold",
     color: colors.text,
     marginBottom: 12,
     textAlign: "center",
   },
   modalSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
     marginBottom: 24,
     textAlign: "center",
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     color: colors.error,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
   },
 });

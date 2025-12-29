@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
     textAlign: "center",
     marginTop: 50,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   notificationIcon: {
-    fontSize: 20,
+    fontSize: 18,
   },
   notificationBadge: {
     position: "absolute",
@@ -485,11 +485,11 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   logoutIcon: {
-    fontSize: 20,
+    fontSize: 18,
   },
   welcomeText: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
   navigationContainer: {
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   navButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
     fontWeight: "600",
     textAlign: "center",
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   promocionesButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
     fontWeight: "600",
     textAlign: "center",
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   },
   profilePictureText: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "bold",
   },
   editIconContainer: {
@@ -618,6 +618,6 @@ const styles = StyleSheet.create({
     borderColor: colors.white,
   },
   editIcon: {
-    fontSize: 9,
+    fontSize: 8,
   },
 });

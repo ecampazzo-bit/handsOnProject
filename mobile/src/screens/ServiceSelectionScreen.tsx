@@ -382,13 +382,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
     color: colors.text,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
     marginBottom: 16,
   },
@@ -404,11 +404,11 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     paddingVertical: 12,
-    fontSize: 16,
+    fontSize: 14,
     color: colors.text,
   },
   searchIcon: {
-    fontSize: 20,
+    fontSize: 18,
     marginLeft: 8,
   },
   categoriasCarouselContainer: {
@@ -452,10 +452,10 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
   categoriaIconText: {
-    fontSize: 28,
+    fontSize: 24,
   },
   categoriaName: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.text,
     textAlign: "center",
     fontWeight: "500",
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
   },
   emptyState: {
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
     textAlign: "center",
   },

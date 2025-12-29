@@ -879,11 +879,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     color: colors.primary,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     marginBottom: 10,
   },
-  title: { fontSize: 22, fontWeight: "bold", color: colors.text },
+  title: { fontSize: 18, fontWeight: "bold", color: colors.text },
   tabsContainer: {
     flexDirection: "row",
     backgroundColor: colors.white,
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.primary,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "500",
     color: colors.textSecondary,
   },
@@ -934,8 +934,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 15,
   },
-  servicioNombre: { fontSize: 18, fontWeight: "bold", color: colors.primary },
-  estadoTag: { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
+  servicioNombre: { fontSize: 16, fontWeight: "bold", color: colors.primary },
+  estadoTag: { fontSize: 11, color: colors.textSecondary, fontWeight: "600" },
   noCotizaciones: { fontStyle: "italic", color: colors.textLight },
   cotizacionCard: {
     marginTop: 10,
@@ -962,7 +962,7 @@ const styles = StyleSheet.create({
   prestadorInfo: {
     flex: 1,
   },
-  prestadorNombre: { fontWeight: "bold", fontSize: 15, marginBottom: 4 },
+  prestadorNombre: { fontWeight: "bold", fontSize: 14, marginBottom: 4 },
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",

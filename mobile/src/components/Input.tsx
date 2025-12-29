@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     color: colors.text,
     paddingVertical: 12,
   },
@@ -154,11 +154,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   eyeIconText: {
-    fontSize: 20,
+    fontSize: 18,
   },
   errorText: {
     color: colors.error,
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 4,
     marginLeft: 4,
   },

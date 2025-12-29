@@ -1,4 +1,4 @@
-# HandsOn - Aplicación Mobile
+# ofiSi - Aplicación Mobile
 
 Aplicación móvil React Native con TypeScript para conectar técnicos/profesionales con clientes que necesitan servicios.
 

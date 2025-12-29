@@ -669,6 +669,11 @@ export const BuscarServicios: React.FC = () => {
             </View>
           ) : (
             <>
+              <View style={styles.messageContainer}>
+                <Text style={styles.messageText}>
+                  Selecciona para enviar solicitud de presupuesto
+                </Text>
+              </View>
               <ScrollView
                 style={styles.prestadoresList}
                 contentContainerStyle={styles.prestadoresListContent}
@@ -908,6 +913,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.primary,
     fontWeight: "600",
+  },
+  messageContainer: {
+    backgroundColor: colors.primaryLight + "15",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  messageText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: "600",
+    textAlign: "center",
   },
   loadingContainer: {
     flex: 1,

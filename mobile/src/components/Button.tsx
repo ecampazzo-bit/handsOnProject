@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   textPrimary: {

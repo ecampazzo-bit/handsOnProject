@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   floatingButton: {
     position: "absolute",
     bottom: 150, // Bajado 30px desde 180
-    width: SCREEN_WIDTH * 0.20, // 20% del ancho de pantalla
+    width: SCREEN_WIDTH * 0.21, // 21% del ancho de pantalla (aumentado 5% desde 20%)
     height: 60, // Alto fijo para ambos botones
     alignItems: "center",
     justifyContent: "center",
