@@ -14,3 +14,8 @@ npm-debug.*
 *.orig.*
 web-build/
 .cursor/
+.DS_Store
+*.zip
+*.env
+*.env.local
+*.env.*.local

@@ -22,6 +22,9 @@ interface Promocion {
   empresa_nombre: string | null
   empresa_contacto: string | null
   whatsapp: string | null
+  latitud: number | null
+  longitud: number | null
+  radio_cobertura_km: number | null
 }
 
 interface Categoria {
@@ -59,6 +62,9 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
     empresa_nombre: null,
     empresa_contacto: null,
     whatsapp: null,
+    latitud: null,
+    longitud: null,
+    radio_cobertura_km: null,
     ...promocion,
   })
 
@@ -290,6 +296,9 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
             empresa_nombre: formData.empresa_nombre || null,
             empresa_contacto: formData.empresa_contacto || null,
             whatsapp: formData.whatsapp || null,
+            latitud: formData.latitud || null,
+            longitud: formData.longitud || null,
+            radio_cobertura_km: formData.radio_cobertura_km || null,
           })
           .eq('id', promocionId)
 
@@ -315,6 +324,9 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
             empresa_nombre: formData.empresa_nombre || null,
             empresa_contacto: formData.empresa_contacto || null,
             whatsapp: formData.whatsapp || null,
+            latitud: formData.latitud || null,
+            longitud: formData.longitud || null,
+            radio_cobertura_km: formData.radio_cobertura_km || null,
           })
           .select()
           .single()
@@ -690,12 +702,134 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
               </div>
             </div>
 
+            {/* Geolocalización */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Geolocalización (Opcional)
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Define la ubicación geográfica de la promoción para búsquedas por proximidad.
+                Si no se especifica, la promoción será global.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Latitud
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={formData.latitud || ''}
+                    onChange={(e) => {
+                      const value = e.target.value ? parseFloat(e.target.value) : null
+                      setFormData({ ...formData, latitud: value })
+                    }}
+                    placeholder="Ej: -34.603722"
+                    min="-90"
+                    max="90"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Rango: -90 a 90 (negativo = Sur)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Longitud
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={formData.longitud || ''}
+                    onChange={(e) => {
+                      const value = e.target.value ? parseFloat(e.target.value) : null
+                      setFormData({ ...formData, longitud: value })
+                    }}
+                    placeholder="Ej: -58.381592"
+                    min="-180"
+                    max="180"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Rango: -180 a 180 (negativo = Oeste)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Radio de Cobertura (km)
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    value={formData.radio_cobertura_km || ''}
+                    onChange={(e) => {
+                      const value = e.target.value ? parseInt(e.target.value) : null
+                      setFormData({ ...formData, radio_cobertura_km: value })
+                    }}
+                    placeholder="Ej: 10"
+                    min="1"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Radio en kilómetros desde el punto de geolocalización
+                  </p>
+                </div>
+              </div>
+
+              {/* Botón para obtener ubicación actual */}
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                          setFormData({
+                            ...formData,
+                            latitud: parseFloat(position.coords.latitude.toFixed(7)),
+                            longitud: parseFloat(position.coords.longitude.toFixed(7)),
+                          })
+                        },
+                        (error) => {
+                          alert(`Error al obtener ubicación: ${error.message}`)
+                        }
+                      )
+                    } else {
+                      alert('Tu navegador no soporta geolocalización')
+                    }
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                >
+                  📍 Usar mi ubicación actual
+                </button>
+              </div>
+
+              {/* Información adicional */}
+              {formData.latitud && formData.longitud && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Ubicación configurada:</strong> {formData.latitud}, {formData.longitud}
+                    {formData.radio_cobertura_km && (
+                      <span> • Radio: {formData.radio_cobertura_km} km</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    La promoción será visible para usuarios dentro del área de cobertura.
+                    {!formData.radio_cobertura_km && ' Considera agregar un radio de cobertura para mejores resultados.'}
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Botones */}
             <div className="flex justify-end gap-4 pt-4 border-t">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>

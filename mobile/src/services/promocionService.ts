@@ -18,6 +18,9 @@ export interface Promocion {
   empresa_nombre: string | null;
   empresa_contacto: string | null;
   whatsapp: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  radio_cobertura_km: number | null;
 }
 
 export const getPromocionesActivas = async (

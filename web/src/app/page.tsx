@@ -1,6 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 
+// Forzar renderizado dinámico para evitar caché de contenido estático
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-white">
@@ -81,7 +85,7 @@ export default function Home() {
                 Busca Servicios
               </h3>
               <p className="text-gray-600 mb-4">
-                Encuentra profesionales cerca de ti con nuestro sistema de
+                Encuentra oficios o servicios cerca de ti con nuestro sistema de
                 búsqueda inteligente por categorías y ubicación.
               </p>
               <ul className="text-gray-700 space-y-2">
@@ -100,8 +104,8 @@ export default function Home() {
                 Solicita Presupuestos
               </h3>
               <p className="text-gray-600 mb-4">
-                Recibe múltiples cotizaciones de profesionales para comparar
-                precios y elegir la mejor opción.
+                Recibe múltiples cotizaciones de oficios o servicios para
+                comparar precios y elegir la mejor opción.
               </p>
               <ul className="text-gray-700 space-y-2">
                 <li>✓ Múltiples cotizaciones</li>
@@ -157,8 +161,8 @@ export default function Home() {
                 Mensajería Integrada
               </h3>
               <p className="text-gray-600 mb-4">
-                Comunícate directamente con profesionales o clientes a través de
-                nuestro sistema de mensajería seguro.
+                Comunícate directamente con quienes ofrecen oficios o servicios
+                o clientes a través de nuestro sistema de mensajería seguro.
               </p>
               <ul className="text-gray-700 space-y-2">
                 <li>✓ Chat en tiempo real</li>
@@ -173,11 +177,11 @@ export default function Home() {
                 <span className="text-3xl">🎯</span>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                Portfolio Profesional
+                Portfolio
               </h3>
               <p className="text-gray-600 mb-4">
-                Los profesionales pueden mostrar su trabajo anterior para
-                generar confianza y atraer más clientes.
+                Quienes ofrecen oficios o servicios pueden mostrar su trabajo
+                anterior para generar confianza y atraer más clientes.
               </p>
               <ul className="text-gray-700 space-y-2">
                 <li>✓ Galería de trabajos</li>
@@ -197,7 +201,7 @@ export default function Home() {
               Así de fácil funciona
             </h2>
             <p className="text-xl text-gray-600">
-              En solo 3 pasos, encuentra el profesional perfecto
+              En solo 3 pasos, encuentra el oficio o servicio perfecto
             </p>
           </div>
 
@@ -220,7 +224,7 @@ export default function Home() {
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Compara</h3>
               <p className="text-gray-600">
                 Revisa perfiles, calificaciones y solicita presupuestos a
-                múltiples profesionales.
+                múltiples oficios o servicios.
               </p>
             </div>
 
@@ -232,8 +236,8 @@ export default function Home() {
                 Contrata
               </h3>
               <p className="text-gray-600">
-                Elige el profesional ideal, coordina el trabajo y califica la
-                experiencia.
+                Elige el oficio o servicio ideal, coordina el trabajo y califica
+                la experiencia.
               </p>
             </div>
           </div>
@@ -559,7 +563,7 @@ export default function Home() {
                 />
               </div>
               <p className="text-gray-400">
-                Conectando profesionales con clientes
+                Conectando oficios o servicios con clientes
               </p>
             </div>
             <div>
@@ -589,7 +593,7 @@ export default function Home() {
               </ul>
             </div>
             <div>
-              <h4 className="font-bold mb-4">Para Profesionales</h4>
+              <h4 className="font-bold mb-4">Para Proveedores de Servicios</h4>
               <ul className="space-y-2 text-gray-400">
                 <li>
                   <a href="#" className="hover:text-white transition">
