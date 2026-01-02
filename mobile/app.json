@@ -28,7 +28,11 @@
       "versionCode": 2,
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
       ]
     },
     "web": {
@@ -46,7 +50,14 @@
       }
     },
     "plugins": [
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La aplicación necesita acceso a tus fotos para que puedas seleccionar una imagen de perfil.",
+          "cameraPermission": "La aplicación necesita acceso a tu cámara para que puedas tomar una foto de perfil."
+        }
+      ]
     ]
   }
 }

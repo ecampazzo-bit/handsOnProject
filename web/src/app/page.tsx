@@ -550,7 +550,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
+          <div className="grid md:grid-cols-3 gap-8 mb-8">
             <div>
               <div className="mb-4">
                 <img
@@ -564,6 +564,9 @@ export default function Home() {
               </div>
               <p className="text-gray-400">
                 Conectando oficios o servicios con clientes
+              </p>
+              <p className="text-gray-400 mt-2 text-sm">
+                Aplicación desarrollada por OyD SRL - La Rioja, Argentina
               </p>
             </div>
             <div>
@@ -593,26 +596,6 @@ export default function Home() {
               </ul>
             </div>
             <div>
-              <h4 className="font-bold mb-4">Para Proveedores de Servicios</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a href="#" className="hover:text-white transition">
-                    Registrarse
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white transition">
-                    Cómo funciona
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white transition">
-                    Tarifas
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
               <h4 className="font-bold mb-4">Soporte</h4>
               <ul className="space-y-2 text-gray-400">
                 <li>
@@ -621,14 +604,19 @@ export default function Home() {
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition">
+                  <a href="mailto:info@ofisi.ar" className="hover:text-white transition">
                     Contacto
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-white transition">
+                  <Link href="/terminos" className="hover:text-white transition">
                     Términos y Condiciones
-                  </a>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacidad" className="hover:text-white transition">
+                    Política de Privacidad
+                  </Link>
                 </li>
               </ul>
             </div>

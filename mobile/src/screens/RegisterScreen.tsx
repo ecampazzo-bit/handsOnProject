@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  AppState,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { useForm, Controller } from "react-hook-form";
@@ -28,6 +30,7 @@ import {
 } from "../utils/validation";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
+import { TerminosModal } from "../components/TerminosModal";
 import { colors } from "../constants/colors";
 import {
   pickImageFromGallery,
@@ -44,12 +47,45 @@ type RegisterScreenNavigationProp = StackNavigationProp<
 
 export const RegisterScreen: React.FC = () => {
   const navigation = useNavigation<RegisterScreenNavigationProp>();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [formData, setFormData] = useState<Partial<RegisterFormData>>({});
   const [profileImageUri, setProfileImageUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
+  const [showTerminosModal, setShowTerminosModal] = useState(false);
+  const appState = useRef(AppState.currentState);
+  const processingImageRef = useRef(false);
+
+  // Monitorear el estado de la app para detectar cuando vuelve al foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === "active"
+      ) {
+        console.log("App ha vuelto al foreground");
+        // Si estábamos procesando una imagen y la app se reinició, resetear el estado
+        if (processingImageRef.current) {
+          console.log("Reseteando estado de procesamiento de imagen");
+          setUploadingPhoto(false);
+          processingImageRef.current = false;
+        }
+        // Asegurar que seguimos en la pantalla de registro
+        // Esto previene que la app vuelva al login cuando se reinicia
+        if (step > 0) {
+          console.log(`Manteniendo estado en paso ${step}`);
+        }
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [step]);
 
   const step1Form = useForm<RegisterStep1FormData>({
     resolver: yupResolver(registerStep1Schema),
@@ -86,11 +122,19 @@ export const RegisterScreen: React.FC = () => {
         text: "Galería",
         onPress: async () => {
           try {
+            // Pequeño delay para asegurar que el Alert se cierre antes
+            await new Promise((resolve) => setTimeout(resolve, 100));
             const result = await pickImageFromGallery();
             if (!result.canceled && result.assets && result.assets[0]) {
-              await processImage(result.assets[0].uri);
+              // Esperar un momento antes de procesar para que la app esté estable
+              setTimeout(async () => {
+                await processImage(result.assets[0].uri);
+              }, 500);
             }
           } catch (error: any) {
+            console.error("Error seleccionando imagen:", error);
+            setUploadingPhoto(false);
+            processingImageRef.current = false;
             Alert.alert(
               "Error",
               error.message || "No se pudo seleccionar la imagen"
@@ -102,11 +146,19 @@ export const RegisterScreen: React.FC = () => {
         text: "Cámara",
         onPress: async () => {
           try {
+            // Pequeño delay para asegurar que el Alert se cierre antes
+            await new Promise((resolve) => setTimeout(resolve, 100));
             const result = await takePhotoWithCamera();
             if (!result.canceled && result.assets && result.assets[0]) {
-              await processImage(result.assets[0].uri);
+              // Esperar un momento antes de procesar para que la app esté estable
+              setTimeout(async () => {
+                await processImage(result.assets[0].uri);
+              }, 500);
             }
           } catch (error: any) {
+            console.error("Error al tomar foto:", error);
+            setUploadingPhoto(false);
+            processingImageRef.current = false;
             Alert.alert("Error", error.message || "No se pudo tomar la foto");
           }
         },
@@ -115,22 +167,35 @@ export const RegisterScreen: React.FC = () => {
   };
 
   const processImage = async (imageUri: string) => {
+    if (processingImageRef.current) {
+      console.log("Ya se está procesando una imagen, ignorando...");
+      return;
+    }
+
+    processingImageRef.current = true;
     setUploadingPhoto(true);
+    
     try {
-      // Convertir a JPG
+      // Esperar un momento para asegurar que la app está en foreground
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // Reducir tamaño y convertir a JPG con más compresión para Android
       const manipulatedImage = await ImageManipulator.manipulateAsync(
         imageUri,
-        [],
+        [{ resize: { width: 800 } }], // Reducir tamaño máximo
         {
-          compress: 0.8,
+          compress: Platform.OS === "android" ? 0.6 : 0.8, // Más compresión en Android
           format: ImageManipulator.SaveFormat.JPEG,
         }
       );
+      
       setProfileImageUri(manipulatedImage.uri);
     } catch (error: any) {
+      console.error("Error procesando imagen:", error);
       Alert.alert("Error", error.message || "No se pudo procesar la imagen");
     } finally {
       setUploadingPhoto(false);
+      processingImageRef.current = false;
     }
   };
 
@@ -165,35 +230,8 @@ export const RegisterScreen: React.FC = () => {
       // Actualizar el estado
       setFormData(updatedData);
 
-      if (data.tipoUsuario === "cliente") {
-        // Validar que tenemos todos los datos del paso 1 antes de continuar
-        if (
-          !updatedData.email ||
-          !updatedData.password ||
-          !updatedData.nombre ||
-          !updatedData.apellido ||
-          !updatedData.telefono
-        ) {
-          console.error("Datos faltantes:", {
-            email: !!updatedData.email,
-            password: !!updatedData.password,
-            nombre: !!updatedData.nombre,
-            apellido: !!updatedData.apellido,
-            telefono: !!updatedData.telefono,
-          });
-          Alert.alert(
-            "Error",
-            "Faltan datos del paso anterior. Por favor, vuelve al paso 1."
-          );
-          setStep(1);
-          return;
-        }
-        // Llamar a handleFinalSubmit con los datos actualizados
-        await handleFinalSubmit(updatedData as RegisterFormData);
-      } else {
-        // Si es prestador o ambos, ir al paso 3 para obtener dirección y ubicación
-        setStep(3);
-      }
+      // Todos los usuarios van al paso 3 para agregar dirección y geolocalización
+      setStep(3);
     } catch (error) {
       console.error("Error en handleStep2Next:", error);
       Alert.alert("Error", "Ocurrió un error al procesar los datos");
@@ -225,6 +263,15 @@ export const RegisterScreen: React.FC = () => {
 
   const handleStep3Next = async (data: RegisterStep3FormData) => {
     try {
+      // Validar aceptación de términos
+      if (!aceptaTerminos) {
+        Alert.alert(
+          "Términos y Condiciones",
+          "Debes aceptar los Términos y Condiciones para continuar."
+        );
+        return;
+      }
+
       // Obtener los datos de los pasos anteriores directamente de los formularios
       const step1Data = step1Form.getValues();
       const step2Data = step2Form.getValues();
@@ -440,31 +487,31 @@ export const RegisterScreen: React.FC = () => {
         // Esperar un momento para que la sesión se establezca completamente
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        // Subir foto de perfil si existe
-        if (profileImageUri) {
-          console.log("Subiendo foto de perfil...");
-          try {
-            // Pasar waitForSession=true para esperar a que la sesión esté lista
-            const photoResult = await uploadProfilePicture(
-              user.id,
-              profileImageUri,
-              true // Esperar a que la sesión esté establecida
-            );
-            if (photoResult.error) {
-              console.error(
-                "Error subiendo foto de perfil:",
-                photoResult.error
-              );
-              // No detener el proceso por error en la foto
-              // La foto se puede subir más tarde desde el perfil
-            } else {
-              console.log("Foto de perfil subida exitosamente");
-            }
-          } catch (photoError) {
-            console.error("Error al procesar foto de perfil:", photoError);
-            // Continuar con el registro aunque falle la foto
-          }
-        }
+        // La carga de foto de perfil se hará después de validar el email
+        // if (profileImageUri) {
+        //   console.log("Subiendo foto de perfil...");
+        //   try {
+        //     // Pasar waitForSession=true para esperar a que la sesión esté lista
+        //     const photoResult = await uploadProfilePicture(
+        //       user.id,
+        //       profileImageUri,
+        //       true // Esperar a que la sesión esté establecida
+        //     );
+        //     if (photoResult.error) {
+        //       console.error(
+        //         "Error subiendo foto de perfil:",
+        //         photoResult.error
+        //       );
+        //       // No detener el proceso por error en la foto
+        //       // La foto se puede subir más tarde desde el perfil
+        //     } else {
+        //       console.log("Foto de perfil subida exitosamente");
+        //     }
+        //   } catch (photoError) {
+        //     console.error("Error al procesar foto de perfil:", photoError);
+        //     // Continuar con el registro aunque falle la foto
+        //   }
+        // }
 
         // Si el usuario es prestador o ambos, debe seleccionar servicios
         if (
@@ -521,50 +568,6 @@ export const RegisterScreen: React.FC = () => {
   const renderStep1 = () => (
     <View>
       <Text style={styles.stepTitle}>Información Personal</Text>
-
-      {/* Foto de Perfil (Opcional) */}
-      <View style={styles.profilePhotoSection}>
-        <Text style={styles.photoLabel}>Foto de Perfil (Opcional)</Text>
-        <View style={styles.profilePhotoWrapper}>
-          <TouchableOpacity
-            onPress={handleEditProfilePicture}
-            disabled={uploadingPhoto}
-            style={styles.profilePhotoContainer}
-          >
-            {profileImageUri ? (
-              <Image
-                source={{ uri: profileImageUri }}
-                style={styles.profilePhoto}
-              />
-            ) : (
-              <View style={styles.profilePhotoPlaceholder}>
-                <Text style={styles.photoPlaceholderText}>📷</Text>
-                <Text style={styles.photoPlaceholderSubtext}>Agregar foto</Text>
-              </View>
-            )}
-            {uploadingPhoto && (
-              <View style={styles.uploadingOverlay}>
-                <ActivityIndicator size="small" color={colors.white} />
-              </View>
-            )}
-          </TouchableOpacity>
-          {profileImageUri && !uploadingPhoto && (
-            <TouchableOpacity
-              onPress={() => {
-                setProfileImageUri(null);
-              }}
-              style={styles.removePhotoButton}
-            >
-              <Text style={styles.removePhotoButtonText}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        {profileImageUri && (
-          <Text style={styles.photoHintText}>
-            ✓ Foto seleccionada. Puedes cambiarla tocando la imagen.
-          </Text>
-        )}
-      </View>
 
       <Controller
         control={step1Form.control}
@@ -748,11 +751,7 @@ export const RegisterScreen: React.FC = () => {
           style={styles.backButton}
         />
         <Button
-          title={
-            step2Form.watch("tipoUsuario") === "cliente"
-              ? "Finalizar"
-              : "Continuar"
-          }
+          title="Continuar"
           onPress={step2Form.handleSubmit(handleStep2Next)}
           loading={loading}
           style={styles.nextButton}
@@ -805,6 +804,40 @@ export const RegisterScreen: React.FC = () => {
         </View>
       )}
 
+      {/* Icono de Usuario Genérico */}
+      <View style={styles.profilePhotoSection}>
+        <View style={styles.profilePhotoWrapper}>
+          <View style={styles.profilePhotoContainer}>
+            <View style={styles.profilePhotoPlaceholder}>
+              <Text style={styles.photoPlaceholderText}>👤</Text>
+              <Text style={styles.photoPlaceholderSubtext}>Usuario</Text>
+            </View>
+          </View>
+        </View>
+        <Text style={styles.photoHintText}>
+          Podrás agregar tu foto de perfil después de validar tu email
+        </Text>
+      </View>
+
+      <View style={styles.terminosContainer}>
+        <TouchableOpacity
+          style={styles.checkboxContainer}
+          onPress={() => setAceptaTerminos(!aceptaTerminos)}
+        >
+          <View
+            style={[styles.checkbox, aceptaTerminos && styles.checkboxChecked]}
+          >
+            {aceptaTerminos && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", flex: 1 }}>
+            <Text style={styles.checkboxLabel}>Acepto los </Text>
+            <TouchableOpacity onPress={() => setShowTerminosModal(true)}>
+              <Text style={styles.linkText}>Términos y Condiciones</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.buttonRow}>
         <Button
           title="Atrás"
@@ -813,7 +846,11 @@ export const RegisterScreen: React.FC = () => {
           style={styles.backButton}
         />
         <Button
-          title="Continuar a selección de servicios"
+          title={
+            step2Form.watch("tipoUsuario") === "cliente"
+              ? "Finalizar"
+              : "Continuar a selección de servicios"
+          }
           onPress={step3Form.handleSubmit(handleStep3Next)}
           loading={loading}
           style={styles.nextButton}
@@ -828,7 +865,10 @@ export const RegisterScreen: React.FC = () => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          (step === 1 || step === 2) && { paddingTop: Math.max(insets.top + 20, 80) },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
@@ -841,7 +881,18 @@ export const RegisterScreen: React.FC = () => {
           {step === 2 && renderStep2()}
           {step === 3 && renderStep3()}
         </View>
+        
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Login")}
+          style={styles.backToLoginButtonBottom}
+        >
+          <Text style={styles.backToLoginText}>← Volver al Login</Text>
+        </TouchableOpacity>
       </ScrollView>
+      <TerminosModal
+        visible={showTerminosModal}
+        onClose={() => setShowTerminosModal(false)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -854,11 +905,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
-    paddingTop: 60,
+    paddingTop: Platform.OS === "ios" ? 20 : 60,
   },
   header: {
     alignItems: "center",
     marginBottom: 32,
+  },
+  backToLoginButtonBottom: {
+    alignSelf: "center",
+    padding: 12,
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  backToLoginText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: "600",
   },
   logo: {
     fontSize: 36,
@@ -1044,5 +1106,39 @@ const styles = StyleSheet.create({
     color: colors.success,
     marginTop: 4,
     textAlign: "center",
+  },
+  terminosContainer: {
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: colors.textSecondary,
+    borderRadius: 4,
+    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: colors.text,
+    flex: 1,
+    flexWrap: "wrap",
+  },
+  linkText: {
+    color: colors.primary,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });

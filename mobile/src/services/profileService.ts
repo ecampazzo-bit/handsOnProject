@@ -31,7 +31,6 @@ export const pickImageFromGallery =
     }
 
     return await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -52,6 +51,7 @@ export const takePhotoWithCamera =
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
+      exif: false,
     });
   };
 
