@@ -17,7 +17,13 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.handson.app"
+      "bundleIdentifier": "com.handson.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ofiSi necesita acceso a tu cámara para que puedas tomar fotos de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes.",
+        "NSPhotoLibraryUsageDescription": "ofiSi necesita acceso a tu galería de fotos para que puedas seleccionar imágenes de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes.",
+        "NSLocationWhenInUseUsageDescription": "ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona. Tu ubicación se utiliza únicamente para mejorar tu experiencia de búsqueda y no se comparte con terceros.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona. Tu ubicación se utiliza únicamente para mejorar tu experiencia de búsqueda y no se comparte con terceros."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -33,7 +39,8 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"
-      ]
+      ],
+      "blockedPermissions": []
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -54,8 +61,18 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "La aplicación necesita acceso a tus fotos para que puedas seleccionar una imagen de perfil.",
-          "cameraPermission": "La aplicación necesita acceso a tu cámara para que puedas tomar una foto de perfil."
+          "photosPermission": "ofiSi necesita acceso a tu galería de fotos para que puedas seleccionar imágenes de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes.",
+          "cameraPermission": "ofiSi necesita acceso a tu cámara para que puedas tomar fotos de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona. Tu ubicación se utiliza únicamente para mejorar tu experiencia de búsqueda y no se comparte con terceros.",
+          "locationAlwaysPermission": "ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona. Tu ubicación se utiliza únicamente para mejorar tu experiencia de búsqueda y no se comparte con terceros.",
+          "locationWhenInUsePermission": "ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona. Tu ubicación se utiliza únicamente para mejorar tu experiencia de búsqueda y no se comparte con terceros.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
         }
       ]
     ]
