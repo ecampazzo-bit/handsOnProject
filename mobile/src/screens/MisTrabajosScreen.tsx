@@ -28,6 +28,8 @@ import {
   uploadPortfolioPhotos,
   createPortfolioItem,
 } from "../services/portfolioService";
+import { openWhatsApp } from "../utils/whatsappUtils";
+import { openPhoneCall } from "../utils/phoneUtils";
 
 type MisTrabajosNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -811,51 +813,22 @@ export const MisTrabajosScreen: React.FC = () => {
   };
 
   const handleLlamar = async (telefono: string, nombre: string) => {
-    try {
-      const phoneNumber = telefono.replace(/[^0-9+]/g, ""); // Limpiar formato
-      const url = `tel:${phoneNumber}`;
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(
-          "Error",
-          `No se puede realizar la llamada. Teléfono: ${telefono}`
-        );
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo abrir la aplicación de llamadas");
-    }
+    await openPhoneCall(telefono, nombre);
   };
 
   const handleWhatsApp = async (telefono: string, nombre: string) => {
-    try {
-      // Limpiar y formatear número de teléfono
-      let phoneNumber = telefono.replace(/[^0-9+]/g, "");
-
-      // Si no empieza con +, agregar código de país (Argentina por defecto)
-      if (!phoneNumber.startsWith("+")) {
-        // Asumir que es Argentina si no tiene código de país
-        phoneNumber = `+54${phoneNumber}`;
-      }
-
-      const message = `Hola ${nombre}, te contacto respecto al trabajo que aceptaste.`;
-      const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
-        message
-      )}`;
-
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(
-          "WhatsApp no disponible",
-          "Por favor instala WhatsApp o usa el número: " + telefono
-        );
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo abrir WhatsApp");
+    console.log(`📱 handleWhatsApp llamado con:`, { telefono, nombre });
+    
+    if (!telefono || !telefono.trim()) {
+      Alert.alert(
+        "Error",
+        `No se puede contactar a ${nombre} porque no tiene un número de teléfono registrado.`
+      );
+      return;
     }
+    
+    const mensaje = `Hola ${nombre}, te contacto respecto al trabajo que aceptaste.`;
+    await openWhatsApp(telefono, mensaje, nombre);
   };
 
   const getEstadoLabel = (estado: string) => {

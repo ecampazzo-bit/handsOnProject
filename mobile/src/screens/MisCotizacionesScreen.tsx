@@ -16,6 +16,8 @@ import { supabase } from "../services/supabaseClient";
 import { colors } from "../constants/colors";
 import { getCurrentUserId } from "../services/authService";
 import { RootStackParamList } from "../types/navigation";
+import { openWhatsApp } from "../utils/whatsappUtils";
+import { openPhoneCall } from "../utils/phoneUtils";
 
 type MisCotizacionesNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -166,45 +168,19 @@ export const MisCotizacionesScreen: React.FC = () => {
   };
 
   const handleLlamar = async (telefono: string, nombre: string) => {
-    try {
-      const phoneNumber = telefono.replace(/[^0-9+]/g, "");
-      const url = `tel:${phoneNumber}`;
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(
-          "Error",
-          `No se puede realizar la llamada. Teléfono: ${telefono}`
-        );
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo abrir la aplicación de llamadas");
-    }
+    await openPhoneCall(telefono, nombre);
   };
 
   const handleWhatsApp = async (telefono: string, nombre: string) => {
-    try {
-      let phoneNumber = telefono.replace(/[^0-9+]/g, "");
-      if (!phoneNumber.startsWith("+")) {
-        phoneNumber = `+54${phoneNumber}`;
-      }
-      const message = `Hola ${nombre}, te contacto respecto al presupuesto que aceptaste.`;
-      const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
-        message
-      )}`;
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(
-          "WhatsApp no disponible",
-          "Por favor instala WhatsApp o usa el número: " + telefono
-        );
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo abrir WhatsApp");
+    if (!telefono || !telefono.trim()) {
+      Alert.alert(
+        "Error",
+        `No se puede contactar a ${nombre} porque no tiene un número de teléfono registrado.`
+      );
+      return;
     }
+    const mensaje = `Hola ${nombre}, te contacto respecto al presupuesto que aceptaste.`;
+    await openWhatsApp(telefono, mensaje, nombre);
   };
 
   // Filtrar cotizaciones según la solapa activa

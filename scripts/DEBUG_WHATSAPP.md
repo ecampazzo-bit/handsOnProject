@@ -1,233 +1,113 @@
-# 🔍 Debug: No Llega el Código por WhatsApp
+# 🐛 Debug: WhatsApp No Disponible
 
-Guía paso a paso para diagnosticar por qué no llega el código de verificación por WhatsApp.
+## Pasos para Diagnosticar
 
-## ✅ Checklist de Verificación
+### 1. Verificar Logs en la Consola
 
-### 1. Verificar que la Edge Function esté Desplegada
-
-1. Ve a Supabase Dashboard → **Edge Functions**
-2. Verifica que `send-whatsapp-code` aparezca en la lista
-3. Debe tener estado **"Active"** o **"Deployed"**
-
-**Si no está desplegada:**
-- Ve a Edge Functions → Create function
-- Nombre: `send-whatsapp-code`
-- Pega el código de `scripts/edge-functions/send-whatsapp-code/index.ts`
-- Haz clic en "Deploy"
-
-### 2. Verificar Variables de Entorno
-
-1. Ve a Edge Functions → `send-whatsapp-code` → **Settings** o **Secrets**
-2. Verifica que existan estas 3 variables:
-   - `TWILIO_ACCOUNT_SID`
-   - `TWILIO_AUTH_TOKEN`
-   - `TWILIO_WHATSAPP_NUMBER`
-
-**Si faltan:**
-- Agrégalas con los valores correctos de Twilio
-
-### 3. Verificar el Trigger en la Base de Datos
-
-Ejecuta este SQL en el SQL Editor:
-
-```sql
--- Verificar que el trigger existe
-SELECT 
-    trigger_name,
-    event_manipulation,
-    event_object_table,
-    action_statement
-FROM information_schema.triggers
-WHERE trigger_name = 'trigger_send_whatsapp';
+Cuando presionas el botón de WhatsApp, deberías ver en la consola:
+```
+📱 Intentando abrir WhatsApp para: +5493804663809 (5493804663809)
 ```
 
-**Si no existe:**
-- Ejecuta el script: `scripts/setup_whatsapp_trigger.sql`
+Si no ves este log, la función no se está llamando.
 
-### 4. Verificar Extensión pg_net
+### 2. Verificar Formato del Número
 
-```sql
--- Verificar si pg_net está habilitada
-SELECT * FROM pg_extension WHERE extname = 'pg_net';
+Ejecuta en la consola de la app:
+```javascript
+// Ver qué número se está pasando
+console.log("Número recibido:", telefono);
 ```
 
-**Si no está habilitada:**
-1. Ve a Database → Extensions
-2. Busca `pg_net`
-3. Haz clic en "Enable"
+El número debería estar en formato:
+- ✅ `+5493804663809`
+- ✅ `093804663809` (se normaliza a +5493804663809)
+- ❌ `3804663809` (sin código de país)
 
-### 5. Probar la Edge Function Manualmente
+### 3. Verificar que WhatsApp Está Instalado
 
-#### Desde el Dashboard:
+**En Android:**
+- Abre WhatsApp manualmente
+- Si no se abre, instálalo desde Google Play
 
-1. Ve a Edge Functions → `send-whatsapp-code`
-2. Haz clic en **"Invoke function"**
-3. Ingresa este JSON:
+**En iOS:**
+- Abre WhatsApp manualmente
+- Si no se abre, instálalo desde App Store
+
+### 4. Probar URL Manualmente
+
+Abre el navegador en tu dispositivo y prueba:
+```
+https://wa.me/5493804663809?text=Hola
+```
+
+Si esto funciona, el problema está en la app. Si no funciona, el problema puede ser el número.
+
+### 5. Verificar Configuración de iOS
+
+Si estás en iOS, verifica que `app.json` tenga:
 ```json
-{
-  "telefono": "+5491112345678",
-  "codigo": "123456"
-}
+"LSApplicationQueriesSchemes": [
+  "whatsapp",
+  "whatsapp-business"
+]
 ```
-4. Haz clic en **"Invoke"**
-5. Revisa la respuesta:
-   - Si dice `"success": true` → La función funciona
-   - Si hay error → Revisa los logs
 
-#### Desde Terminal (cURL):
-
+Luego reconstruye la app:
 ```bash
-curl -X POST \
-  'https://kqxnjpyupcxbajuzsbtx.supabase.co/functions/v1/send-whatsapp-code' \
-  -H 'Authorization: Bearer TU_ANON_KEY' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "telefono": "+5491112345678",
-    "codigo": "123456"
-  }'
+cd mobile
+npx expo run:ios
 ```
 
-### 6. Revisar Logs de la Edge Function
+### 6. Verificar en Android
 
-1. Ve a Edge Functions → `send-whatsapp-code` → **Logs**
-2. Busca errores recientes
-3. Los logs mostrarán:
-   - Si se recibió la request
-   - Si Twilio respondió
-   - Cualquier error
+En Android, la configuración debería funcionar automáticamente. Si no funciona:
+1. Verifica que WhatsApp esté instalado
+2. Prueba abrir WhatsApp manualmente
+3. Reconstruye la app: `npx expo run:android`
 
-**Errores comunes:**
-- `Variables de entorno de Twilio no configuradas` → Falta configurar secrets
-- `Unauthorized` → Credenciales de Twilio incorrectas
-- `Invalid phone number` → Formato de teléfono incorrecto
+## Soluciones por Plataforma
 
-### 7. Verificar Configuración de Twilio
+### iOS
 
-#### A. Verificar Credenciales
+**Problema**: `canOpenURL` retorna `false` incluso con WhatsApp instalado
 
-1. Ve a [Twilio Console](https://console.twilio.com/)
-2. Verifica que el **Account SID** y **Auth Token** sean correctos
-3. Copia exactamente (sin espacios)
+**Solución**: La función ahora intenta abrir directamente sin verificar primero.
 
-#### B. Verificar WhatsApp Sandbox (si usas sandbox)
+**Si sigue fallando:**
+1. Verifica que `LSApplicationQueriesSchemes` esté en `app.json`
+2. Reconstruye la app completamente
+3. Verifica que WhatsApp esté realmente instalado
 
-1. Ve a Twilio Console → **Messaging** → **Try it out** → **Send a WhatsApp message**
-2. Verifica que tu número esté en la lista de números permitidos
-3. Si no está, únete al sandbox enviando el código que Twilio te da
+### Android
 
-**Para unirse al sandbox:**
-- Envía un mensaje de WhatsApp a: `+1 415 523 8886`
-- Con el código que aparece en la consola de Twilio (ej: `join <codigo>`)
+**Problema**: La URL no se abre
 
-#### C. Verificar Número de WhatsApp
+**Solución**: La función intenta múltiples formatos de URL.
 
-- **Sandbox**: `whatsapp:+14155238886` (siempre el mismo)
-- **Business API**: Tu número de WhatsApp Business
+**Si sigue fallando:**
+1. Verifica que WhatsApp esté instalado
+2. Prueba abrir WhatsApp manualmente
+3. Verifica los logs de Android Studio
 
-### 8. Verificar que el Trigger se Active
+## Logs a Revisar
 
-Ejecuta este SQL para ver si el trigger se activa:
+Busca en la consola:
+- `📱 Intentando abrir WhatsApp para:` - La función se está ejecutando
+- `⚠️ canOpenURL falló` - iOS no puede verificar, pero intentará abrir
+- `⚠️ wa.me falló` - La URL wa.me no funcionó, intentando nativo
+- `❌ Error al abrir WhatsApp:` - Error específico
 
-```sql
--- Insertar un código de prueba
-INSERT INTO public.codigos_verificacion (
-    telefono,
-    codigo,
-    expira_en
-) VALUES (
-    '+5491112345678',
-    '123456',
-    NOW() + INTERVAL '15 minutes'
-);
+## Prueba Rápida
 
--- Verificar que se insertó
-SELECT * FROM public.codigos_verificacion 
-WHERE telefono = '+5491112345678' 
-ORDER BY creado_en DESC 
-LIMIT 1;
-```
+1. Abre cualquier pantalla con botón de WhatsApp
+2. Presiona el botón
+3. Revisa la consola para ver los logs
+4. Si ves `❌ Error`, copia el mensaje completo
 
-**Si el trigger no funciona:**
-- Revisa los logs de PostgreSQL
-- Verifica que `pg_net` esté habilitada
-- Verifica que la URL de la edge function sea correcta
+## Si Nada Funciona
 
-### 9. Verificar Formato del Teléfono
-
-El teléfono debe estar en formato internacional:
-- ✅ Correcto: `+5491112345678`
-- ❌ Incorrecto: `091112345678`, `91112345678`, `5491112345678`
-
-### 10. Verificar en Twilio Dashboard
-
-1. Ve a Twilio Console → **Monitor** → **Logs** → **Messaging**
-2. Busca intentos de envío recientes
-3. Si hay errores, verás el motivo:
-   - `Invalid phone number`
-   - `Unsubscribed recipient`
-   - `Rate limit exceeded`
-   - etc.
-
-## 🐛 Soluciones Comunes
-
-### Problema: "Function not found"
-**Solución:** Despliega la función edge desde el dashboard
-
-### Problema: "Unauthorized" o "Invalid credentials"
-**Solución:** 
-- Verifica que `TWILIO_ACCOUNT_SID` y `TWILIO_AUTH_TOKEN` sean correctos
-- Asegúrate de copiar sin espacios adicionales
-
-### Problema: "Invalid phone number"
-**Solución:**
-- Verifica que el número esté en formato internacional: `+5491112345678`
-- Si usas sandbox, verifica que el número esté en la lista de permitidos
-
-### Problema: "Unsubscribed recipient" (Sandbox)
-**Solución:**
-- Únete al sandbox enviando el código a `+1 415 523 8886`
-- El código aparece en Twilio Console → Messaging → Try it out
-
-### Problema: El trigger no se activa
-**Solución:**
-1. Verifica que `pg_net` esté habilitada
-2. Re-ejecuta `scripts/setup_whatsapp_trigger.sql`
-3. Verifica que la URL de la edge function sea correcta
-
-### Problema: La función se ejecuta pero no envía
-**Solución:**
-- Revisa los logs de la edge function
-- Verifica que Twilio responda con `status: "queued"` o `status: "sent"`
-- Revisa el dashboard de Twilio para ver si hay errores
-
-## 🧪 Test Completo Paso a Paso
-
-1. **Probar función edge directamente:**
-```bash
-curl -X POST \
-  'https://kqxnjpyupcxbajuzsbtx.supabase.co/functions/v1/send-whatsapp-code' \
-  -H 'Authorization: Bearer TU_ANON_KEY' \
-  -H 'Content-Type: application/json' \
-  -d '{"telefono": "+5491112345678", "codigo": "123456"}'
-```
-
-2. **Verificar respuesta:**
-- Debe retornar `{"success": true, ...}`
-- Si hay error, revisa el mensaje
-
-3. **Verificar en Twilio:**
-- Ve a Twilio Console → Monitor → Logs
-- Debe aparecer un intento de envío
-
-4. **Verificar en WhatsApp:**
-- Debe llegar el mensaje al número especificado
-
-## 📞 Contacto de Soporte
-
-Si después de seguir estos pasos aún no funciona:
-1. Revisa los logs de la edge function
-2. Revisa los logs de Twilio
-3. Verifica que todas las configuraciones estén correctas
-4. Prueba con un número diferente
-
+1. **Verifica el número**: Asegúrate de que el número en la base de datos sea correcto
+2. **Prueba manualmente**: Abre `https://wa.me/5493804663809` en el navegador
+3. **Reinstala WhatsApp**: Desinstala y reinstala WhatsApp
+4. **Reconstruye la app**: `npx expo run:ios` o `npx expo run:android`

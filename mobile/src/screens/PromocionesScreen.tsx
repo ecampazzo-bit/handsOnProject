@@ -25,6 +25,7 @@ import {
 } from "../services/promocionService";
 import { getCurrentUser } from "../services/authService";
 import { colors } from "../constants/colors";
+import { openWhatsApp } from "../utils/whatsappUtils";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const CAROUSEL_INTERVAL = 7000; // 7 segundos
@@ -176,19 +177,8 @@ export const PromocionesScreen: React.FC = () => {
       // Usar código de cupón en lugar del nombre de la promoción
       const codigoCupon = promocion.codigo_cupon || promocion.titulo;
       const mensaje = `${nombreUsuario}: Quiero mi promoción "${codigoCupon}"`;
-      const numero = promocion.whatsapp.replace(/[^0-9+]/g, ""); // Limpiar formato
-      const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
-
-      // Intentar abrir WhatsApp
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(
-          "Error",
-          "No se pudo abrir WhatsApp. Verifica que esté instalado en tu dispositivo."
-        );
-      }
+      
+      await openWhatsApp(promocion.whatsapp, mensaje);
     } catch (error) {
       console.error("Error al abrir WhatsApp:", error);
       Alert.alert("Error", "No se pudo abrir WhatsApp");

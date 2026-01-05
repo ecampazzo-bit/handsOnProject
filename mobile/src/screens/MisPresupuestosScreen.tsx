@@ -24,6 +24,8 @@ import {
 } from "../services/solicitudService";
 import { getPortfolioByPrestador } from "../services/portfolioService";
 import { PortfolioItem } from "../services/portfolioService";
+import { openWhatsApp } from "../utils/whatsappUtils";
+import { openPhoneCall } from "../utils/phoneUtils";
 
 // Componente para mostrar estrellas de calificación
 const StarRating: React.FC<{ rating: number; size?: number }> = ({
@@ -372,39 +374,19 @@ export const MisPresupuestosScreen: React.FC = () => {
   };
 
   const handleLlamar = async (telefono: string, nombre: string) => {
-    try {
-      const url = `tel:${telefono}`;
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(
-          "No se puede llamar",
-          `Por favor llama manualmente a ${nombre}: ${telefono}`
-        );
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo realizar la llamada");
-    }
+    await openPhoneCall(telefono, nombre);
   };
 
   const handleWhatsApp = async (telefono: string, nombre: string) => {
-    try {
-      // Limpiar el número de teléfono (quitar espacios, guiones, etc.)
-      const cleanPhone = telefono.replace(/[^0-9]/g, "");
-      const url = `whatsapp://send?phone=${cleanPhone}`;
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(
-          "WhatsApp no disponible",
-          `Por favor instala WhatsApp o usa el número: ${telefono}`
-        );
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo abrir WhatsApp");
+    if (!telefono || !telefono.trim()) {
+      Alert.alert(
+        "Error",
+        `No se puede contactar a ${nombre} porque no tiene un número de teléfono registrado.`
+      );
+      return;
     }
+    const mensaje = `Hola ${nombre}, te contacto respecto al presupuesto.`;
+    await openWhatsApp(telefono, mensaje, nombre);
   };
 
   const handleVerTrabajo = (solicitudId: number) => {
