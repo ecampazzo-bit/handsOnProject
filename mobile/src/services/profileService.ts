@@ -11,6 +11,8 @@ export interface ProfilePictureResult {
 
 /**
  * Solicita permisos para acceder a la galería o cámara
+ * Nota: El sistema mostrará automáticamente un diálogo explicando que ofiSi necesita
+ * acceso a la cámara/galería para tomar fotos de perfil y documentar trabajos realizados.
  */
 export const requestImagePermissions = async (): Promise<boolean> => {
   const { status: cameraStatus } =
@@ -28,7 +30,11 @@ export const pickImageFromGallery =
   async (): Promise<ImagePicker.ImagePickerResult> => {
     const hasPermission = await requestImagePermissions();
     if (!hasPermission) {
-      throw new Error("No se otorgaron permisos para acceder a la galería");
+      throw new Error(
+        "No se otorgaron permisos para acceder a la galería. " +
+        "ofiSi necesita este permiso para que puedas seleccionar imágenes de perfil y documentar los trabajos realizados. " +
+        "Puedes activar este permiso en la configuración de tu dispositivo."
+      );
     }
 
     return await ImagePicker.launchImageLibraryAsync({
@@ -46,7 +52,11 @@ export const takePhotoWithCamera =
   async (): Promise<ImagePicker.ImagePickerResult> => {
     const hasPermission = await requestImagePermissions();
     if (!hasPermission) {
-      throw new Error("No se otorgaron permisos para acceder a la cámara");
+      throw new Error(
+        "No se otorgaron permisos para acceder a la cámara. " +
+        "ofiSi necesita este permiso para que puedas tomar fotos de perfil y documentar los trabajos realizados. " +
+        "Puedes activar este permiso en la configuración de tu dispositivo."
+      );
     }
 
     return await ImagePicker.launchCameraAsync({

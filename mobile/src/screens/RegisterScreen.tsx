@@ -249,8 +249,11 @@ export const RegisterScreen: React.FC = () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
-          "Permisos de ubicación",
-          "Necesitamos permisos de ubicación para usar esta función."
+          "Permisos de ubicación requeridos",
+          "ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona. Tu ubicación se utiliza únicamente para mejorar tu experiencia de búsqueda y no se comparte con terceros.\n\nPuedes activar este permiso más tarde en la configuración de tu dispositivo.",
+          [
+            { text: "Entendido", style: "default" }
+          ]
         );
         return;
       }
@@ -260,7 +263,10 @@ export const RegisterScreen: React.FC = () => {
       step3Form.setValue("longitud", location.coords.longitude);
       Alert.alert("Éxito", "Ubicación obtenida correctamente");
     } catch (error) {
-      Alert.alert("Error", "No se pudo obtener la ubicación");
+      Alert.alert(
+        "Error al obtener ubicación",
+        "No se pudo obtener tu ubicación. Por favor, verifica que los servicios de ubicación estén activados en tu dispositivo."
+      );
     } finally {
       setGettingLocation(false);
     }

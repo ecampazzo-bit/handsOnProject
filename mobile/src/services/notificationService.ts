@@ -26,12 +26,20 @@ Notifications.setNotificationHandler({
 /**
  * Solicita permisos de notificaciones al usuario
  */
+/**
+ * Solicita permisos de notificaciones al usuario
+ * Nota: El sistema mostrará automáticamente un diálogo explicando que ofiSi necesita
+ * acceso a las notificaciones para informarte sobre nuevas solicitudes de servicio,
+ * actualizaciones de tus trabajos, mensajes de clientes y recordatorios importantes.
+ */
 export const requestNotificationPermissions = async (): Promise<boolean> => {
   try {
     // Verificar si ya se solicitó antes
     const permissionAsked = await AsyncStorage.getItem(NOTIFICATION_PERMISSION_KEY);
     
     // Solicitar permisos
+    // Nota: El sistema operativo mostrará automáticamente un diálogo con la explicación
+    // configurada en app.json (iOS) o strings.xml (Android)
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
