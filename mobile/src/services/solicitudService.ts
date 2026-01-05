@@ -728,6 +728,7 @@ export const createCotizacion = async (params: {
   tiempoEstimado: number;
   descripcion: string;
   fechaProgramada?: string; // Fecha en formato YYYY-MM-DD
+  incluyeMateriales?: boolean; // Si incluye materiales
 }): Promise<{ error: { message: string } | null }> => {
   try {
     console.log("Iniciando RPC crear_cotizacion_v1 con:", params);
@@ -755,20 +756,29 @@ export const createCotizacion = async (params: {
 
     console.log("Cotización creada exitosamente via RPC:", data);
 
-    // Si se proporciona fecha programada, actualizar la cotización
-    if (params.fechaProgramada && data && data.cotizacion_id) {
+    // Actualizar campos adicionales si se proporcionan
+    const updateData: any = {};
+    if (params.fechaProgramada) {
+      updateData.fecha_disponible = params.fechaProgramada;
+    }
+    if (params.incluyeMateriales !== undefined) {
+      updateData.materiales_incluidos = params.incluyeMateriales;
+    }
+
+    // Si hay datos para actualizar y se obtuvo el ID de la cotización
+    if (Object.keys(updateData).length > 0 && data && data.cotizacion_id) {
       const { error: updateError } = await supabase
         .from("cotizaciones")
-        .update({ fecha_disponible: params.fechaProgramada })
+        .update(updateData)
         .eq("id", data.cotizacion_id);
 
       if (updateError) {
-        console.error("Error al actualizar fecha programada:", updateError);
+        console.error("Error al actualizar campos adicionales:", updateError);
         // No lanzar error, solo loguear, ya que la cotización ya se creó
       } else {
-        console.log("Fecha programada actualizada exitosamente");
+        console.log("Campos adicionales actualizados exitosamente");
       }
-    } else if (params.fechaProgramada) {
+    } else if (params.fechaProgramada || params.incluyeMateriales !== undefined) {
       // Si no se obtuvo el ID de la cotización del RPC, intentar buscarlo
       const { data: cotizacionesData, error: findError } = await supabase
         .from("cotizaciones")
@@ -780,15 +790,25 @@ export const createCotizacion = async (params: {
         .single();
 
       if (!findError && cotizacionesData) {
-        const { error: updateError } = await supabase
-          .from("cotizaciones")
-          .update({ fecha_disponible: params.fechaProgramada })
-          .eq("id", cotizacionesData.id);
+        const updateDataFallback: any = {};
+        if (params.fechaProgramada) {
+          updateDataFallback.fecha_disponible = params.fechaProgramada;
+        }
+        if (params.incluyeMateriales !== undefined) {
+          updateDataFallback.materiales_incluidos = params.incluyeMateriales;
+        }
 
-        if (updateError) {
-          console.error("Error al actualizar fecha programada:", updateError);
-        } else {
-          console.log("Fecha programada actualizada exitosamente");
+        if (Object.keys(updateDataFallback).length > 0) {
+          const { error: updateError } = await supabase
+            .from("cotizaciones")
+            .update(updateDataFallback)
+            .eq("id", cotizacionesData.id);
+
+          if (updateError) {
+            console.error("Error al actualizar campos adicionales:", updateError);
+          } else {
+            console.log("Campos adicionales actualizados exitosamente");
+          }
         }
       }
     }
@@ -1030,45 +1050,8 @@ export const aceptarCotizacion = async (
         );
       }
 
-      // Crear notificación adicional sobre la cotización aceptada
-      // Esto permite que aparezca en la pantalla de Mis Cotizaciones
-      const contenidoCotizacion = `Tu presupuesto de $${precioCotizacion} fue aceptado por ${clienteNombre}. Ve a "Mis Cotizaciones" para ver los detalles y comunicarte con el cliente.`;
-
-      console.log("Creando notificación de cotización aceptada:");
-      console.log("- Prestador usuario_id:", prestadorUsuarioId);
-      console.log("- Precio:", precioCotizacion);
-      console.log("- Cliente:", clienteNombre);
-      console.log("- Contenido:", contenidoCotizacion);
-
-      const { data: notifCotizInsertada, error: notifCotizError } =
-        await supabase
-          .from("notificaciones")
-          .insert({
-            usuario_id: prestadorUsuarioId,
-            tipo: "sistema",
-            titulo: "¡Tu cotización fue aceptada!",
-            contenido: contenidoCotizacion,
-            referencia_id: cotizacionId,
-            referencia_tipo: "cotizacion",
-            leida: false,
-            enviada_push: false,
-            enviada_email: false,
-          })
-          .select();
-
-      if (notifCotizError) {
-        console.error(
-          "Error al crear notificación de cotización:",
-          notifCotizError
-        );
-        console.error("Detalles:", JSON.stringify(notifCotizError, null, 2));
-        // No lanzamos error aquí, la aceptación ya se completó
-      } else {
-        console.log(
-          "✅ Notificación de cotización enviada al prestador:",
-          JSON.stringify(notifCotizInsertada, null, 2)
-        );
-      }
+      // Nota: Se eliminó la notificación duplicada de tipo "sistema" 
+      // La notificación de tipo "trabajo_aceptado" es suficiente y evita duplicación
     }
 
     // 7. Notificar a TODOS los prestadores que recibieron la solicitud

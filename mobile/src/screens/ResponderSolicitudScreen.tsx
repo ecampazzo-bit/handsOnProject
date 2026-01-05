@@ -38,6 +38,7 @@ export const ResponderSolicitudScreen: React.FC = () => {
   const [descripcion, setDescripcion] = useState("");
   const [fechaProgramada, setFechaProgramada] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [incluyeMateriales, setIncluyeMateriales] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -101,6 +102,7 @@ export const ResponderSolicitudScreen: React.FC = () => {
         tiempoEstimado: tiempoNum,
         descripcion,
         fechaProgramada: fechaFormateada,
+        incluyeMateriales,
       });
 
       if (error) throw error;
@@ -230,6 +232,25 @@ export const ResponderSolicitudScreen: React.FC = () => {
             onChangeText={setDescripcion}
           />
         </View>
+
+        <View style={styles.checkboxContainer}>
+          <TouchableOpacity
+            style={styles.checkbox}
+            onPress={() => setIncluyeMateriales(!incluyeMateriales)}
+          >
+            <View
+              style={[
+                styles.checkboxBox,
+                incluyeMateriales && styles.checkboxBoxChecked,
+              ]}
+            >
+              {incluyeMateriales && (
+                <Text style={styles.checkboxCheckmark}>✓</Text>
+              )}
+            </View>
+            <Text style={styles.checkboxLabel}>Incluye materiales</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -347,6 +368,38 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.white,
+  },
+  checkboxContainer: {
+    marginBottom: 20,
+  },
+  checkbox: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkboxBox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 4,
+    marginRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.white,
+  },
+  checkboxBoxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxCheckmark: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: "500",
   },
   button: {
     backgroundColor: colors.primary,

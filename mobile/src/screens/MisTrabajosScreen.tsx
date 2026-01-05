@@ -1290,37 +1290,38 @@ export const MisTrabajosScreen: React.FC = () => {
                       year: "numeric",
                     })}
                   </Text>
-                  {/* Fecha programada */}
-                  {(trabajo.fecha_programada || trabajo.fecha_inicio) && (
-                    <View style={styles.fechaProgramadaContainer}>
-                      <Text style={styles.fechaProgramadaLabel}>
-                        📅 Fecha Programada:
-                      </Text>
-                      <Text style={styles.fechaProgramada}>
-                        {trabajo.fecha_programada
-                          ? new Date(
-                              trabajo.fecha_programada
-                            ).toLocaleDateString("es-AR", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "2-digit",
-                            })
-                          : trabajo.fecha_inicio
-                          ? new Date(trabajo.fecha_inicio).toLocaleDateString(
-                              "es-AR",
-                              {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "2-digit",
-                              }
-                            )
-                          : ""}
-                      </Text>
-                    </View>
-                  )}
                 </View>
                 <Text style={styles.monto}>Total: ${trabajo.monto_final}</Text>
               </View>
+
+              {/* Fecha programada - mismo ancho que los botones */}
+              {(trabajo.fecha_programada || trabajo.fecha_inicio) && (
+                <View style={styles.fechaProgramadaContainer}>
+                  <Text style={styles.fechaProgramadaLabel}>
+                    📅 Fecha Programada:
+                  </Text>
+                  <Text style={styles.fechaProgramada}>
+                    {trabajo.fecha_programada
+                      ? new Date(
+                          trabajo.fecha_programada
+                        ).toLocaleDateString("es-AR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "2-digit",
+                        })
+                      : trabajo.fecha_inicio
+                      ? new Date(trabajo.fecha_inicio).toLocaleDateString(
+                          "es-AR",
+                          {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "2-digit",
+                          }
+                        )
+                      : ""}
+                  </Text>
+                </View>
+              )}
 
               {/* Botones de acción */}
               <View style={styles.actionButtons}>
@@ -1891,7 +1892,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 12,
     alignItems: "center",
     borderBottomWidth: 3,
     borderBottomColor: "transparent",
@@ -1900,7 +1901,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.primary,
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "500",
     color: colors.textSecondary,
   },
@@ -1960,7 +1961,7 @@ const styles = StyleSheet.create({
   },
   userName: { fontSize: 15, fontWeight: "600", color: colors.text },
   telefonoText: {
-    fontSize: 13,
+    fontSize: 11,
     color: colors.textSecondary,
     marginTop: 4,
   },
@@ -2055,24 +2056,26 @@ const styles = StyleSheet.create({
   fechaProgramadaContainer: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: colors.primaryLight + "20",
     padding: 10,
     borderRadius: 8,
     marginTop: 8,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.primaryLight,
+    width: "100%",
   },
   fechaProgramadaLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: colors.text,
-    marginRight: 8,
   },
   fechaProgramada: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.primary,
     fontWeight: "600",
-    flex: 1,
+    textAlign: "right",
   },
   monto: { fontSize: 15, fontWeight: "bold", color: colors.primary },
 
@@ -2082,14 +2085,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   btnFinalizar: {
-    flex: 4.5,
+    flex: 4,
     backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
+    justifyContent: "center",
   },
   btnCancelar: {
-    flex: 1.1,
+    flex: 1.5,
     backgroundColor: colors.error,
     paddingVertical: 12,
     borderRadius: 8,
@@ -2098,8 +2102,9 @@ const styles = StyleSheet.create({
   },
   btnCancelarText: {
     color: colors.white,
-    fontWeight: "bold",
-    fontSize: 13,
+    fontWeight: "600",
+    fontSize: 12,
+    textAlign: "center",
   },
   btnCalificar: {
     backgroundColor: colors.warning,
@@ -2147,7 +2152,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 14,
   },
-  btnTextWhite: { color: colors.white, fontWeight: "bold", fontSize: 15 },
+  btnTextWhite: { 
+    color: colors.white, 
+    fontWeight: "600", 
+    fontSize: 12,
+    textAlign: "center",
+  },
   calificadoBadge: { alignItems: "center", paddingVertical: 8 },
   calificadoText: { color: colors.textSecondary, fontStyle: "italic" },
 

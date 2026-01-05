@@ -23,7 +23,8 @@
         "NSPhotoLibraryUsageDescription": "ofiSi necesita acceso a tu galería de fotos para que puedas seleccionar imágenes de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes.",
         "NSLocationWhenInUseUsageDescription": "ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona. Tu ubicación se utiliza únicamente para mejorar tu experiencia de búsqueda y no se comparte con terceros.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona. Tu ubicación se utiliza únicamente para mejorar tu experiencia de búsqueda y no se comparte con terceros."
-      }
+      },
+      "usesAppleSignIn": false
     },
     "android": {
       "adaptiveIcon": {
@@ -38,7 +39,9 @@
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES"
+        "READ_MEDIA_IMAGES",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
       ],
       "blockedPermissions": []
     },
@@ -74,7 +77,17 @@
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#4F46E5",
+          "sounds": [],
+          "mode": "production"
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

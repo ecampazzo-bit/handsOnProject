@@ -1071,6 +1071,7 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
               onPress={handleConvertirseEnCliente}
               loading={saving}
               style={styles.convertButton}
+              textStyle={styles.convertButtonText}
             />
           </View>
         </View>
@@ -1634,6 +1635,9 @@ const styles = StyleSheet.create({
   },
   convertButton: {
     marginTop: 8,
+  },
+  convertButtonText: {
+    fontSize: 12,
   },
   calendar: {
     borderRadius: 12,

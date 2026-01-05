@@ -838,7 +838,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   desestimarButton: {
-    flex: 1,
+    flex: 1.3,
     backgroundColor: colors.white,
     paddingVertical: 12,
     borderRadius: 8,
@@ -848,7 +848,7 @@ const styles = StyleSheet.create({
   },
   desestimarButtonText: {
     color: colors.textSecondary,
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "600",
   },
   cotizarButton: {
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
   },
   cotizarButtonText: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "600",
   },
 });

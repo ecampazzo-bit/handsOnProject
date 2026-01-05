@@ -10,6 +10,10 @@ module.exports = function(api) {
         },
       ],
     ],
+    plugins: [
+      // El plugin de reanimated debe ser el último
+      'react-native-reanimated/plugin',
+    ],
   };
 };
 

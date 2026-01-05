@@ -74,6 +74,7 @@ interface Cotizacion {
   tiempo_estimado: number;
   descripcion_trabajo: string | null;
   fecha_disponible: string | null;
+  materiales_incluidos: boolean;
   estado: string;
   prestador: {
     id: number;
@@ -186,6 +187,7 @@ export const MisPresupuestosScreen: React.FC = () => {
             tiempo_estimado,
             descripcion_trabajo,
             fecha_disponible,
+            materiales_incluidos,
             estado,
             prestadores(
               id,
@@ -276,6 +278,7 @@ export const MisPresupuestosScreen: React.FC = () => {
             tiempo_estimado: c.tiempo_estimado,
             descripcion_trabajo: c.descripcion_trabajo,
             fecha_disponible: c.fecha_disponible,
+            materiales_incluidos: c.materiales_incluidos || false,
             estado: c.estado,
           prestador: {
             id: c.prestadores.id,
@@ -600,6 +603,12 @@ export const MisPresupuestosScreen: React.FC = () => {
                           ${cotiz.precio_ofrecido} • {cotiz.tiempo_estimado}hs
                           aprox.
                         </Text>
+                        {/* Información de materiales */}
+                        {cotiz.materiales_incluidos && (
+                          <Text style={styles.materialesText}>
+                            ✅ Incluye materiales
+                          </Text>
+                        )}
                         {/* Fecha programada */}
                         {cotiz.fecha_disponible && (
                           <Text style={styles.fechaPrecioText}>
@@ -676,29 +685,39 @@ export const MisPresupuestosScreen: React.FC = () => {
                       {cotiz.estado === "aceptada" ? (
                         <>
                           <TouchableOpacity
-                            style={styles.btnLlamar}
-                            onPress={() =>
-                              handleLlamar(
-                                cotiz.prestador.usuario.telefono,
-                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
-                              )
-                            }
+                            style={styles.btnVerTrabajo}
+                            onPress={() => handleVerTrabajo(solicitud.id)}
                           >
-                            <Text style={styles.btnTextLlamar}>📞 Llamar</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.btnWhatsApp}
-                            onPress={() =>
-                              handleWhatsApp(
-                                cotiz.prestador.usuario.telefono,
-                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
-                              )
-                            }
-                          >
-                            <Text style={styles.btnTextWhatsApp}>
-                              💬 WhatsApp
+                            <Text style={styles.btnTextVerTrabajo}>
+                              Ver Trabajo
                             </Text>
                           </TouchableOpacity>
+                          <View style={styles.buttonsRow}>
+                            <TouchableOpacity
+                              style={styles.btnLlamar}
+                              onPress={() =>
+                                handleLlamar(
+                                  cotiz.prestador.usuario.telefono,
+                                  `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                                )
+                              }
+                            >
+                              <Text style={styles.btnTextLlamar}>📞 Llamar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.btnWhatsApp}
+                              onPress={() =>
+                                handleWhatsApp(
+                                  cotiz.prestador.usuario.telefono,
+                                  `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                                )
+                              }
+                            >
+                              <Text style={styles.btnTextWhatsApp}>
+                                💬 WhatsApp
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
                           <TouchableOpacity
                             style={styles.btnVerPortfolio}
                             onPress={() =>
@@ -710,14 +729,6 @@ export const MisPresupuestosScreen: React.FC = () => {
                           >
                             <Text style={styles.btnTextVerPortfolio}>
                               📸 Portfolio
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.btnVerTrabajo}
-                            onPress={() => handleVerTrabajo(solicitud.id)}
-                          >
-                            <Text style={styles.btnTextVerTrabajo}>
-                              Ver Trabajo
                             </Text>
                           </TouchableOpacity>
                         </>
@@ -747,30 +758,32 @@ export const MisPresupuestosScreen: React.FC = () => {
                             <Text style={styles.btnTextAceptar}>Aceptar</Text>
                           </TouchableOpacity>
                           {/* Botones secundarios: Llamar y WhatsApp */}
-                          <TouchableOpacity
-                            style={styles.btnLlamar}
-                            onPress={() =>
-                              handleLlamar(
-                                cotiz.prestador.usuario.telefono,
-                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
-                              )
-                            }
-                          >
-                            <Text style={styles.btnTextLlamar}>📞 Llamar</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.btnWhatsApp}
-                            onPress={() =>
-                              handleWhatsApp(
-                                cotiz.prestador.usuario.telefono,
-                                `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
-                              )
-                            }
-                          >
-                            <Text style={styles.btnTextWhatsApp}>
-                              💬 WhatsApp
-                            </Text>
-                          </TouchableOpacity>
+                          <View style={styles.buttonsRow}>
+                            <TouchableOpacity
+                              style={styles.btnLlamar}
+                              onPress={() =>
+                                handleLlamar(
+                                  cotiz.prestador.usuario.telefono,
+                                  `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                                )
+                              }
+                            >
+                              <Text style={styles.btnTextLlamar}>📞 Llamar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.btnWhatsApp}
+                              onPress={() =>
+                                handleWhatsApp(
+                                  cotiz.prestador.usuario.telefono,
+                                  `${cotiz.prestador.usuario.nombre} ${cotiz.prestador.usuario.apellido}`
+                                )
+                              }
+                            >
+                              <Text style={styles.btnTextWhatsApp}>
+                                💬 WhatsApp
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
                           <TouchableOpacity
                             style={styles.btnVerPortfolio}
                             onPress={() =>
@@ -981,6 +994,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   precioText: { color: colors.success, fontWeight: "600", fontSize: 13, marginBottom: 4 },
+  materialesText: {
+    color: colors.success,
+    fontWeight: "600",
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 4,
+  },
   fechaPrecioText: { 
     color: colors.primary, 
     fontWeight: "500", 
@@ -1040,10 +1060,14 @@ const styles = StyleSheet.create({
   },
   cotizDesc: { fontSize: 14, color: colors.textSecondary, marginBottom: 15 },
   actions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
+    flexDirection: "column",
+    gap: 8,
     marginTop: 8,
+  },
+  buttonsRow: {
+    flexDirection: "row",
+    gap: 6,
+    width: "100%",
   },
   btnRechazar: {
     paddingVertical: 6,
@@ -1069,26 +1093,26 @@ const styles = StyleSheet.create({
     height: 36,
   },
   btnLlamar: {
-    paddingVertical: 5,
-    paddingHorizontal: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
     borderRadius: 5,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
     minWidth: "30%",
-    height: 32,
+    height: 28,
   },
   btnWhatsApp: {
-    paddingVertical: 5,
-    paddingHorizontal: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
     borderRadius: 5,
     backgroundColor: "#25D366", // Color verde de WhatsApp
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
     minWidth: "30%",
-    height: 32,
+    height: 28,
   },
   btnVerPortfolio: {
     paddingVertical: 5,
@@ -1097,19 +1121,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
     alignItems: "center",
     justifyContent: "center",
-    flex: 1,
-    minWidth: "30%",
-    height: 32,
+    width: "100%",
+    height: 28,
   },
   btnVerTrabajo: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 6,
     backgroundColor: colors.secondary,
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    marginTop: 4,
   },
   btnTextRechazar: {
     color: colors.error,
@@ -1124,12 +1146,12 @@ const styles = StyleSheet.create({
   btnTextLlamar: {
     color: colors.white,
     fontWeight: "600",
-    fontSize: 12,
+    fontSize: 10,
   },
   btnTextWhatsApp: {
     color: colors.white,
     fontWeight: "600",
-    fontSize: 12,
+    fontSize: 10,
   },
   btnTextVerPortfolio: {
     color: colors.white,
@@ -1139,7 +1161,7 @@ const styles = StyleSheet.create({
   btnTextVerTrabajo: {
     color: colors.white,
     fontWeight: "600",
-    fontSize: 12,
+    fontSize: 10,
   },
   estadoBadgeAceptada: {
     backgroundColor: colors.success + "20",
