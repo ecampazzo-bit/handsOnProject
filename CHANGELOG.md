@@ -1,181 +1,121 @@
 # Changelog
 
-Todos los cambios notables en este proyecto serán documentados en este archivo.
+## [Versión 1.3.0] - 2025-01-05
 
-El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
-y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
+### ✨ Nuevas Funcionalidades
 
-## [1.3.0] - 2025-01-XX
+#### Sistema de Notificaciones Push
+- Implementación completa de notificaciones push usando `expo-notifications`
+- Integración con Supabase Realtime para recibir notificaciones en tiempo real
+- Solicitud automática de permisos de notificaciones al iniciar la app
+- Manejo inteligente de Expo Go vs development builds (las push remotas solo funcionan en builds)
+- Notificaciones locales funcionan en Expo Go cuando se crean notificaciones en Supabase
 
-### Agregado
-- **Sistema de Promociones Especiales**: Implementado sistema completo de promociones especiales en la app móvil.
-  - Nueva pantalla `PromocionesScreen` con carrusel automático de promociones activas
-  - Cambio automático cada 7 segundos entre promociones
-  - Navegación por swipe horizontal
-  - Indicadores de paginación visuales
-  - Botones flotantes para solicitar promoción por WhatsApp y compartir
-  - Mensaje de WhatsApp personalizado con código de cupón
-  - Compartir promociones con imagen y mensaje completo
-  - Filtrado automático de promociones según tipo de usuario (cliente/prestador)
-  
-- **Botón de Promociones Especiales en Home Screen**: Agregado botón destacado "🎁 Promociones Especiales" en la barra de navegación.
-  - Posicionado debajo de los otros botones de navegación
-  - Ocupa todo el ancho de la pantalla
-  - Visible para todos los tipos de usuarios
-  - Tab inicial por defecto en la aplicación
+#### Campo "Incluye Materiales" en Cotizaciones
+- Agregado checkbox "Incluye materiales" en la pantalla de responder solicitud
+- El prestador puede marcar si su cotización incluye materiales
+- Los clientes ven esta información claramente en sus cotizaciones recibidas
+- Información guardada en la base de datos y mostrada en la UI
 
-- **Dashboard de Promociones en Web**: Implementado panel de administración completo para gestionar promociones.
-  - CRUD completo de promociones (crear, editar, eliminar, activar/pausar)
-  - Subida de imágenes para promoción (principal y mobile)
-  - Configuración de fechas, público objetivo, códigos de cupón
-  - Campo WhatsApp para contacto y automatización de mensajes
-  - Visualización de estadísticas (vistas, clics, usos)
-  - Actualización automática de estadísticas cada 30 segundos
-  - Botón de refrescar manual
-  - Filtros por estado y búsqueda
+### 🎨 Mejoras de UI/UX
 
-- **Funciones RPC para Estadísticas**: Implementado sistema de tracking de promociones.
-  - `incrementar_vista_promocion`: Registra cada vez que se muestra una promoción
-  - `incrementar_click_promocion`: Registra cada click en botones de acción
-  - `incrementar_uso_promocion`: Registra uso del cupón de promoción
-  - Scripts SQL para creación y verificación de funciones
+#### Mis Trabajos en Curso
+- Fecha programada ahora usa más ancho y se muestra en una sola fila
+- Alineación mejorada: etiqueta a la izquierda, fecha a la derecha
+- Botón "Cancelar" ligeramente más ancho para mejor usabilidad
+- Reducción de tamaño de fuente en botones para mejor ajuste
+- Tabs "En Curso", "Terminados", "Cancelados" con fuente más pequeña para caber en una fila
+- Reducción de tamaño de fuente del número de teléfono para que quepa en una línea
 
-- **Tabla de Promociones en Base de Datos**: Creada estructura completa de base de datos.
-  - Tabla `promociones` con todos los campos necesarios
-  - Tabla `promociones_uso` para tracking detallado
-  - Bucket de Storage `promociones` para imágenes
-  - Políticas RLS configuradas
-  - Scripts de configuración completos
+#### Mis Presupuestos
+- Reorganización de botones: "Ver Trabajo" arriba y más ancho
+- Botones "Llamar" y "WhatsApp" en una fila horizontal debajo
+- Reducción significativa de tamaños de fuente e iconos en todos los botones
+- Mejor organización visual del espacio
 
-### Mejorado
-- **Home Screen**:
-  - Reorganización de botones de navegación
-  - Botones principales reducidos 25% en altura
-  - Mejor organización visual con botón de promociones destacado
-  - Mejor uso del espacio vertical
+#### Solicitudes Pendientes
+- Reducción de tamaño de fuente en botones "Desestimar" y "Cotizar"
+- Botón "Desestimar" ligeramente más ancho para mejor visibilidad
 
-- **Pantalla de Promociones**:
-  - Optimización de altura de imagen (reducción 5% general, 8% en Android)
-  - Botones flotantes rectangulares con texto (20% ancho de pantalla)
-  - Posicionamiento mejorado de botones para mejor visibilidad
-  - Eliminación de overlay de texto para experiencia más limpia
-  - Solo muestra imagen y botones de acción
+#### Gestión de Cuenta
+- Reducción de tamaño de fuente en botón "Convertirme también en Cliente"
 
-- **Dashboard Web de Promociones**:
-  - Actualización automática de estadísticas en tiempo real
-  - Visualización de vistas, clics y usos
-  - Validación obligatoria de imagen principal antes de guardar
-  - Mejor manejo de errores y feedback visual
+### 🐛 Correcciones de Bugs
 
-### Corregido
-- **Registro de Estadísticas**: Corregido problema donde los contadores de clics y usos no se actualizaban correctamente.
-  - Funciones RPC mejoradas para manejar casos edge
-  - Mejor logging para diagnóstico
-  - Permisos correctamente configurados
+#### Notificaciones
+- **Eliminada duplicación de notificaciones**: Al aceptar una cotización, ahora solo se envía una notificación al prestador en lugar de dos
+- Manejo correcto de errores cuando las notificaciones push no están disponibles (Expo Go)
 
-### Documentación
-- Agregada documentación completa del sistema de promociones
-- Scripts SQL para configuración completa
-- Guías para creación y gestión de promociones
-- Documentación de funciones RPC y estadísticas
-
-## [1.2.0] - 2025-01-XX
-
-### Agregado
-- **Carrusel de Categorías**: Implementado carrusel horizontal de categorías con iconos/imágenes en las pantallas de búsqueda y oferta de servicios.
-  - Carrusel debajo del campo de búsqueda en `BuscarServicios` y `OfrezcoServicios`
-  - Muestra imágenes de categorías cuando están disponibles en la base de datos
-  - Filtrado de servicios por categoría seleccionada
-  - Opción "Todas" para ver todos los servicios sin filtrar
-
-- **Campo URL en Categorías**: Agregado campo `url` a la tabla `categorias` en Supabase para almacenar URLs de imágenes representativas de cada categoría.
-  - Script SQL para agregar el campo (`agregar_url_categoria.sql`)
-  - Scripts para subir imágenes de categorías a Supabase Storage
-  - Documentación completa para gestión de imágenes de categorías
-
-### Mejorado
-- **Diseño de Logos**:
-  - Logo a color (`logocolor.png`) en pantalla de login
-  - Logo blanco (`logoblanco.png`) en barra superior de HomeScreen
-  - Logo en login aumentado 100% de tamaño para mejor visibilidad
-
-- **Interfaz de Búsqueda de Servicios**:
-  - Simplificado header de "BuscarServicios" de "Estoy buscando / Encuentra el profesional que necesitas" a solo "Buscando..."
-  - Reducido padding y tamaño de fuente para ocupar menos espacio vertical
-  - Ocultado nombre de categoría en lista de servicios cuando hay una categoría seleccionada (mejor UX)
-
-- **Interfaz de Ofrecer Servicios**:
-  - Agregado carrusel de categorías en la sección "Agregar Servicios"
-  - Filtrado por categoría y búsqueda por nombre
-  - Ocultado nombre de categoría cuando hay una categoría seleccionada
-
-### Documentación
-- Agregada documentación para subir imágenes de categorías
-- Scripts SQL para configuración de bucket de categorías
-- Guías rápidas para gestión de imágenes de categorías
-
-## [1.1.1] - 2025-01-XX
-
-### Corregido
-- **Gestión de Cuenta**: Corregido problema donde el email largo se cortaba en dos líneas. Ahora se muestra en una sola línea con ellipsis (`...`) cuando es demasiado largo.
-
-## [1.1.0] - 2025-01-XX
-
-### Agregado
-- **Verificación de Teléfono por WhatsApp**: Implementado sistema completo de verificación de números de teléfono mediante WhatsApp usando Twilio y Supabase Edge Functions.
-  - Pantalla de verificación de teléfono (`PhoneVerificationScreen`)
-  - Servicio de verificación (`phoneVerificationService.ts`)
-  - Funciones RPC en Supabase para generar y verificar códigos OTP
-  - Edge Function para enviar códigos por WhatsApp
-  - Normalización de números de teléfono para consistencia
-  - Botón "Volver" en la pantalla de verificación
-  - Funcionalidad para editar teléfono si aún no está verificado
-
-- **Verificación de Email en Perfil**: Agregada funcionalidad para reenviar email de verificación desde la pantalla de gestión de cuenta si el email no está confirmado.
-
-### Mejorado
-- **Gestión de Cuenta**: 
-  - Mejorado el manejo de teléfonos no verificados con opción de editar
-  - Mejorada la visualización del estado de verificación de email y teléfono
-  - Mejor UX para la gestión de datos personales
-
-- **Subida de Imágenes**:
-  - Mejorado el manejo de imágenes locales usando `expo-file-system/legacy`
-  - Validación de tamaño de archivo antes de subir
+#### Portfolio
+- **Corrección crítica en uploadPortfolioPhotos**: 
+  - Reemplazado uso de `Blob` (no disponible en React Native) por `ArrayBuffer`
+  - Implementación usando `expo-file-system/legacy` para leer archivos
+  - Conversión correcta de base64 a ArrayBuffer
+  - Reintentos inteligentes para Android (necesita más tiempo para escribir archivos)
+- **Mejora en createPortfolioItem**:
+  - Fallback a inserción directa si la función RPC falla
   - Mejor manejo de errores y logging
-  - Conversión automática a JPG para optimización
+  - Parseo correcto del resultado jsonb de la función RPC
 
-### Corregido
-- **RPC desde App**: Corregido problema de permisos y `search_path` en funciones RPC para que funcionen correctamente desde la aplicación móvil.
-- **Imágenes Corruptas**: Corregido problema donde algunas imágenes se subían como 0 bytes. Agregada validación y scripts de limpieza.
+#### Cotizaciones
+- Corrección en mapeo de datos para incluir `materiales_incluidos` en la interfaz
+- Visualización correcta de información de materiales en cotizaciones del cliente
 
-### Documentación
-- Agregada documentación completa para configuración de verificación WhatsApp
-- Guías para creación de Edge Functions en Supabase
-- Scripts de diagnóstico y debugging para WhatsApp
-- Documentación de funciones RPC
+### 🔧 Mejoras Técnicas
 
-## [1.0.0] - 2024-XX-XX
+#### Configuración
+- Actualización de `babel.config.js` para incluir plugin de `react-native-reanimated`
+- Instalación de `react-native-worklets` y `react-native-worklets-core` para compatibilidad
+- Configuración de `expo-notifications` en `app.json` con icono y colores personalizados
+- Corrección de versiones de dependencias usando `expo install --fix`
 
-### Agregado
-- Versión inicial del proyecto
-- Sistema de autenticación (login/registro)
-- Gestión de usuarios (clientes y prestadores)
-- Sistema de solicitudes y cotizaciones
-- Sistema de mensajería
-- Sistema de calificaciones
-- Gestión de trabajos
-- Portfolio de prestadores
-- Sistema de notificaciones
+#### Código
+- Mejor manejo de errores en servicios
+- Logging mejorado para debugging
+- Código más robusto con fallbacks cuando las funciones RPC no están disponibles
 
----
+### 📝 Archivos Modificados
 
-## Tipos de Cambios
+#### Nuevos Archivos
+- `mobile/src/services/notificationService.ts`: Servicio completo para manejo de notificaciones
 
-- **Agregado**: Nueva funcionalidad
-- **Cambiado**: Cambios en funcionalidad existente
-- **Deprecado**: Funcionalidad que será removida en futuras versiones
-- **Removido**: Funcionalidad removida
-- **Corregido**: Corrección de bugs
-- **Seguridad**: Corrección de vulnerabilidades
+#### Archivos Modificados
+- `mobile/App.tsx`: Integración de sistema de notificaciones
+- `mobile/app.json`: Configuración de expo-notifications
+- `mobile/babel.config.js`: Plugin de react-native-reanimated
+- `mobile/package.json`: Nuevas dependencias
+- `mobile/src/components/GestionCuenta.tsx`: Ajuste de tamaño de fuente
+- `mobile/src/screens/MisPresupuestosScreen.tsx`: Mejoras UI y campo materiales_incluidos
+- `mobile/src/screens/MisTrabajosScreen.tsx`: Mejoras UI
+- `mobile/src/screens/ResponderSolicitudScreen.tsx`: Campo "incluye materiales"
+- `mobile/src/screens/SolicitudesPendientesScreen.tsx`: Ajustes de botones
+- `mobile/src/services/portfolioService.ts`: Corrección de upload y create
+- `mobile/src/services/solicitudService.ts`: Eliminación de notificaciones duplicadas
 
+### 📦 Dependencias Agregadas
+- `expo-notifications`: ^0.32.15
+- `react-native-worklets`: 0.5.1
+- `react-native-worklets-core`: ^1.6.2
+
+### ⚠️ Notas Importantes
+
+#### Notificaciones Push
+- Las notificaciones push remotas **NO funcionan en Expo Go** (SDK 53+)
+- Para usar notificaciones push remotas, es necesario crear un development build o build de producción
+- Las notificaciones locales funcionan correctamente en Expo Go
+- El código detecta automáticamente si está en Expo Go y ajusta el comportamiento
+
+#### Portfolio
+- La función `uploadPortfolioPhotos` ahora usa `ArrayBuffer` en lugar de `Blob` para compatibilidad con React Native
+- Se implementaron reintentos para Android que puede necesitar más tiempo para escribir archivos
+
+### 🔄 Migración
+
+No se requieren pasos de migración especiales. Los cambios son compatibles con versiones anteriores.
+
+### 📚 Documentación
+
+Para más información sobre:
+- **Notificaciones**: Ver `mobile/src/services/notificationService.ts`
+- **Portfolio**: Ver `mobile/src/services/portfolioService.ts`
+- **Configuración**: Ver `mobile/app.json` y `mobile/babel.config.js`
