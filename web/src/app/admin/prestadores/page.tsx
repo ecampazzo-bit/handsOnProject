@@ -236,6 +236,7 @@ export default function PrestadoresDashboard() {
               width={120}
               height={72}
               className="h-auto"
+              loading="eager"
             />
             <h1 className="text-2xl font-bold text-gray-900">Prestadores Activos por Categoría</h1>
           </div>

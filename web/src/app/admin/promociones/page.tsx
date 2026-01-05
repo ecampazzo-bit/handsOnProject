@@ -28,6 +28,9 @@ interface Promocion {
   orden_display: number;
   empresa_nombre: string | null;
   empresa_contacto: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  radio_cobertura_km: number | null;
   whatsapp: string | null;
   veces_mostrada: number;
   veces_clic: number;

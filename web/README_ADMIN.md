@@ -14,7 +14,7 @@ El dashboard de administración permite gestionar usuarios del sistema, incluyen
 
 Por defecto, el sistema reconoce como administrador a usuarios con:
 - Email que contenga `@admin.` (ej: `admin@admin.ofisi.com`)
-- Email exacto: `admin@ofisi.com`
+- Email exacto: `admin@ofisi.ar`
 
 **Nota**: En producción, deberías implementar un sistema de roles más robusto usando una tabla de roles o un campo `is_admin` en la tabla `users`.
 
@@ -89,7 +89,7 @@ El `SERVICE_ROLE_KEY` es necesario para que el dashboard pueda actualizar usuari
 1. Ve a **Authentication** → **Users** en Supabase
 2. Click en **"Add user"** → **"Create new user"**
 3. Completa:
-   - **Email**: `admin@ofisi.com` (o cualquier email con `@admin.`)
+   - **Email**: `admin@ofisi.ar` (o cualquier email con `@admin.`)
    - **Password**: (elige una contraseña segura)
    - **Auto Confirm User**: ✅ (marcar)
 4. Click en **"Create user"**
@@ -109,7 +109,7 @@ INSERT INTO public.users (
   activo
 ) VALUES (
   'TU_UUID_AQUI'::uuid,
-  'admin@ofisi.com',
+  'admin@ofisi.ar',
   'dummy',
   'Administrador',
   'Sistema',

@@ -4,15 +4,21 @@ import * as ImageManipulator from "expo-image-manipulator";
 // Usar la API legacy de expo-file-system porque readAsStringAsync de la API nueva está deprecado
 // y lanza error en lugar de solo warning en Expo 54.
 import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
 import { requestImagePermissions } from "./profileService";
 import { createPortfolioItem } from "./portfolioService";
 
 /**
  * Convierte una imagen a formato JPG compatible con React Native
  * Esto asegura que formatos como HEIC se conviertan a JPG
+ *
+ * IMPORTANTE: Especialmente para fotos de cámara, el archivo temporal
+ * necesita tiempo para escribirse completamente en disco
  */
 const convertToJPG = async (uri: string): Promise<string> => {
   try {
+    console.log(`🔄 Convirtiendo imagen a JPG: ${uri.substring(0, 40)}...`);
+
     const manipResult = await ImageManipulator.manipulateAsync(
       uri,
       [], // No aplicar transformaciones, solo convertir formato
@@ -21,9 +27,34 @@ const convertToJPG = async (uri: string): Promise<string> => {
         format: ImageManipulator.SaveFormat.JPEG, // Forzar formato JPEG
       }
     );
-    return manipResult.uri;
+
+    const newUri = manipResult.uri;
+    console.log(`✅ Convertido a JPG: ${newUri.substring(0, 40)}...`);
+
+    // ⚠️ IMPORTANTE: Esperar un poco para que el archivo se escriba completamente
+    // Esto es especialmente importante para fotos de cámara en React Native
+    // Android necesita más tiempo que iOS para escribir archivos temporales
+    const waitTime = Platform.OS === "android" ? 500 : 300;
+    console.log(
+      `⏳ Esperando ${waitTime}ms para que el archivo se escriba completamente...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+    // Verificar que el archivo exista antes de continuar
+    const fileInfo = await FileSystem.getInfoAsync(newUri);
+    if (!fileInfo.exists) {
+      console.warn(
+        `⚠️ Archivo temporal no existe después de conversión: ${newUri}`
+      );
+      // Si el archivo no existe, intentar de nuevo con la URI original
+      return uri;
+    }
+
+    console.log(`✅ Archivo JPG verificado: ${fileInfo.size} bytes`);
+
+    return newUri;
   } catch (error) {
-    console.error("Error al convertir imagen a JPG:", error);
+    console.error("❌ Error al convertir imagen a JPG:", error);
     // Si falla la conversión, devolver la URI original
     return uri;
   }
@@ -33,218 +64,382 @@ const convertToJPG = async (uri: string): Promise<string> => {
  * Convierte una URI de imagen a ArrayBuffer para React Native
  * Usa expo-file-system para leer el archivo correctamente en React Native
  * Retorna ArrayBuffer que es compatible con supabase-js en React Native
+ *
+ * ⚠️ Reintentos internos para archivos recién creados (especialmente de cámara)
+ * En Android usa más reintentos porque el sistema de archivos es más lento
  */
-const uriToArrayBuffer = async (uri: string): Promise<ArrayBuffer> => {
+const uriToArrayBuffer = async (
+  uri: string,
+  maxRetries: number = Platform.OS === "android" ? 5 : 3
+): Promise<ArrayBuffer> => {
+  const tryRead = async (attempt: number): Promise<ArrayBuffer> => {
+    try {
+      console.log(
+        `📤 Leyendo archivo (intento ${attempt}/${maxRetries}): ${uri.substring(
+          0,
+          40
+        )}...`
+      );
+
+      // Obtener información del archivo
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+
+      if (!fileInfo.exists) {
+        throw new Error(`El archivo no existe: ${uri}`);
+      }
+
+      console.log(`📁 Archivo encontrado: ${fileInfo.size} bytes`);
+
+      // Si el archivo está vacío, esperar un poco y reintentar
+      // Android necesita más tiempo entre reintentos
+      if (fileInfo.size === 0 && attempt < maxRetries) {
+        const waitMs = Platform.OS === "android" ? 800 : 500;
+        console.warn(
+          `⚠️ Archivo vacío (0 bytes), esperando ${waitMs}ms e intentando de nuevo...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        return tryRead(attempt + 1);
+      }
+
+      if (fileInfo.size === 0) {
+        throw new Error(
+          `El archivo está vacío (0 bytes) después de ${maxRetries} intentos`
+        );
+      }
+
+      // Leer el archivo como base64
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: "base64" as any,
+      });
+
+      if (!base64 || base64.length === 0) {
+        if (attempt < maxRetries) {
+          const waitMs = Platform.OS === "android" ? 800 : 500;
+          console.warn(
+            `⚠️ Base64 vacío, esperando ${waitMs}ms e intentando de nuevo...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+          return tryRead(attempt + 1);
+        }
+        throw new Error(
+          `El archivo está vacío o no se pudo leer después de ${maxRetries} intentos`
+        );
+      }
+
+      console.log(`✅ Archivo leído: ${base64.length} caracteres base64`);
+
+      // Convertir base64 a ArrayBuffer
+      // Usar atob si está disponible, sino hacerlo manualmente
+      const binaryString =
+        typeof atob !== "undefined"
+          ? atob(base64)
+          : (() => {
+              const chars =
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+              let output = "";
+              let i = 0;
+              const cleanBase64 = base64.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+              while (i < cleanBase64.length) {
+                const enc1 = chars.indexOf(cleanBase64.charAt(i++));
+                const enc2 = chars.indexOf(cleanBase64.charAt(i++));
+                const enc3 = chars.indexOf(cleanBase64.charAt(i++));
+                const enc4 = chars.indexOf(cleanBase64.charAt(i++));
+                const chr1 = (enc1 << 2) | (enc2 >> 4);
+                const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+                const chr3 = ((enc3 & 3) << 6) | enc4;
+                output += String.fromCharCode(chr1);
+                if (enc3 !== 64) output += String.fromCharCode(chr2);
+                if (enc4 !== 64) output += String.fromCharCode(chr3);
+              }
+              return output;
+            })();
+
+      // Convertir string binario a ArrayBuffer
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      console.log(`✅ ArrayBuffer creado: ${bytes.buffer.byteLength} bytes`);
+
+      return bytes.buffer;
+    } catch (error) {
+      if (attempt < maxRetries) {
+        console.warn(
+          `⚠️ Error en intento ${attempt}: ${
+            error instanceof Error ? error.message : error
+          }`
+        );
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return tryRead(attempt + 1);
+      }
+
+      console.error(
+        `❌ Error final al leer archivo después de ${maxRetries} intentos:`,
+        error
+      );
+      console.error(`URI problemática: ${uri}`);
+      if (error instanceof Error) {
+        console.error(`Mensaje de error:`, error.message);
+      }
+      throw error;
+    }
+  };
+
+  return tryRead(1);
+};
+
+/**
+ * Valida que el usuario esté autenticado y tiene sesión válida
+ */
+const validateUserSession = async (): Promise<string> => {
   try {
-    console.log(`📤 Leyendo archivo desde URI: ${uri.substring(0, 50)}...`);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    // Obtener información del archivo
-    const fileInfo = await FileSystem.getInfoAsync(uri);
-
-    if (!fileInfo.exists) {
-      throw new Error(`El archivo no existe: ${uri}`);
+    if (!user) {
+      throw new Error("❌ CRÍTICO: Usuario no autenticado");
     }
 
-    console.log(`📁 Archivo encontrado: ${fileInfo.size} bytes`);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    // Leer el archivo como base64
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: "base64" as any,
-    });
-
-    if (!base64 || base64.length === 0) {
-      throw new Error(`El archivo está vacío o no se pudo leer`);
+    if (!session) {
+      throw new Error("❌ CRÍTICO: No hay sesión activa");
     }
 
-    console.log(`✅ Archivo leído: ${base64.length} caracteres base64`);
-
-    // Convertir base64 a ArrayBuffer
-    // Usar atob si está disponible, sino hacerlo manualmente
-    const binaryString =
-      typeof atob !== "undefined"
-        ? atob(base64)
-        : (() => {
-            const chars =
-              "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-            let output = "";
-            let i = 0;
-            const cleanBase64 = base64.replace(/[^A-Za-z0-9\+\/\=]/g, "");
-            while (i < cleanBase64.length) {
-              const enc1 = chars.indexOf(cleanBase64.charAt(i++));
-              const enc2 = chars.indexOf(cleanBase64.charAt(i++));
-              const enc3 = chars.indexOf(cleanBase64.charAt(i++));
-              const enc4 = chars.indexOf(cleanBase64.charAt(i++));
-              const chr1 = (enc1 << 2) | (enc2 >> 4);
-              const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-              const chr3 = ((enc3 & 3) << 6) | enc4;
-              output += String.fromCharCode(chr1);
-              if (enc3 !== 64) output += String.fromCharCode(chr2);
-              if (enc4 !== 64) output += String.fromCharCode(chr3);
-            }
-            return output;
-          })();
-
-    // Convertir string binario a ArrayBuffer
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    console.log(`✅ ArrayBuffer creado: ${bytes.buffer.byteLength} bytes`);
-
-    return bytes.buffer;
+    console.log(`✅ Sesión validada para usuario: ${user.id}`);
+    return user.id;
   } catch (error) {
-    console.error(`❌ Error al leer archivo:`, error);
-    console.error(`URI problemática: ${uri}`);
-    if (error instanceof Error) {
-      console.error(`Mensaje de error:`, error.message);
-    }
+    console.error("Error validando sesión:", error);
     throw error;
   }
 };
 
 /**
- * Sube múltiples imágenes de solicitud a Supabase Storage
+ * Sube múltiples imágenes de solicitud a Supabase Storage con reintentos
  */
 export const uploadSolicitudImages = async (
   solicitudId: number,
-  imageUris: string[]
+  imageUris: string[],
+  maxRetries: number = 2
 ): Promise<{ urls: string[]; error: { message: string } | null }> => {
   try {
+    // Validar que hay imágenes
+    if (!imageUris || imageUris.length === 0) {
+      console.log("ℹ️ No hay imágenes para subir");
+      return {
+        urls: [],
+        error: null,
+      };
+    }
+
+    console.log(`📸 Iniciando subida de ${imageUris.length} imagen(es)...`);
+
+    // ✅ VALIDACIÓN CRÍTICA: Verificar sesión ANTES de intentar cualquier operación
+    let userId: string;
+    try {
+      userId = await validateUserSession();
+    } catch (sessionError) {
+      console.error("❌ FATAL: No se pudo validar la sesión", sessionError);
+      return {
+        urls: [],
+        error: {
+          message:
+            "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+        },
+      };
+    }
+
     const uploadedUrls: string[] = [];
+    const failedImages: Array<{ index: number; reason: string }> = [];
 
     for (let i = 0; i < imageUris.length; i++) {
       const uri = imageUris[i];
+      let retryCount = 0;
+      let uploadSuccess = false;
 
-      try {
-        // Asegurar que la imagen esté en formato JPG antes de subir
-        console.log(`🔄 Procesando imagen ${i + 1}/${imageUris.length}...`);
-        const jpgUri = await convertToJPG(uri);
-        console.log(
-          `✅ Imagen convertida a JPG: ${jpgUri.substring(0, 50)}...`
-        );
+      while (retryCount <= maxRetries && !uploadSuccess) {
+        try {
+          if (retryCount > 0) {
+            console.log(
+              `🔄 Reintentando imagen ${
+                i + 1
+              } (intento ${retryCount}/${maxRetries})...`
+            );
+            // Pequeña pausa antes de reintentar
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
 
-        // Leer el archivo como ArrayBuffer
-        const arrayBuffer = await uriToArrayBuffer(jpgUri);
-
-        // Validar que el ArrayBuffer tenga contenido
-        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-          console.error(
-            `❌ ArrayBuffer vacío para imagen ${i + 1}, saltando...`
-          );
-          console.error(`   URI de la imagen: ${jpgUri.substring(0, 80)}...`);
-          continue;
-        }
-
-        console.log(
-          `✅ ArrayBuffer validado antes de subir: ${arrayBuffer.byteLength} bytes`
-        );
-
-        // Siempre usar extensión .jpg ya que convertimos todas las imágenes
-        const timestamp = Date.now();
-
-        // Obtener el ID del usuario para la ruta (requerido por políticas RLS)
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) throw new Error("Usuario no autenticado");
-
-        // Nueva ruta: solicitudes/{user_id}/{solicitud_id}/{timestamp}_{i}.jpg
-        const fileName = `${user.id}/${solicitudId}/${timestamp}_${i}.jpg`;
-
-        console.log(
-          `📤 Subiendo imagen ${i + 1} a: ${fileName} (${
-            arrayBuffer.byteLength
-          } bytes)`
-        );
-
-        // Subir a Storage usando ArrayBuffer directamente
-        // supabase-js acepta ArrayBuffer en React Native
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("solicitudes")
-          .upload(fileName, arrayBuffer, {
-            cacheControl: "3600",
-            contentType: "image/jpeg", // Siempre JPEG
-            upsert: false, // No sobrescribir si existe
-          });
-
-        if (uploadError) {
-          console.error(`❌ Error al subir imagen ${i + 1}:`, uploadError);
-          console.error(
-            "Detalles del error:",
-            JSON.stringify(uploadError, null, 2)
-          );
-          continue;
-        }
-
-        if (!uploadData) {
-          console.error(
-            `❌ No se recibió data después de subir imagen ${i + 1}`
-          );
-          continue;
-        }
-
-        console.log(`✅ Imagen ${i + 1} subida exitosamente: ${fileName}`);
-
-        // Verificar que el archivo se subió correctamente consultando su metadata
-        const { data: fileInfo, error: infoError } = await supabase.storage
-          .from("solicitudes")
-          .list(`${user.id}/${solicitudId}`, {
-            search: `${timestamp}_${i}.jpg`,
-          });
-
-        if (infoError) {
-          console.warn(`⚠️ No se pudo verificar el archivo subido:`, infoError);
-        } else if (fileInfo && fileInfo.length > 0) {
-          const fileData = fileInfo[0];
+          // Asegurar que la imagen esté en formato JPG antes de subir
           console.log(
-            `✅ Archivo verificado: ${fileData.name} (${
-              fileData.metadata?.size || "tamaño desconocido"
+            `🔄 Procesando imagen ${i + 1}/${imageUris.length}... (intento ${
+              retryCount + 1
+            })`
+          );
+          const jpgUri = await convertToJPG(uri);
+          console.log(
+            `✅ Imagen ${i + 1} convertida a JPG: ${jpgUri.substring(0, 40)}...`
+          );
+
+          // Leer el archivo como ArrayBuffer
+          const arrayBuffer = await uriToArrayBuffer(jpgUri);
+
+          // Validar que el ArrayBuffer tenga contenido
+          if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+            throw new Error(
+              `ArrayBuffer vacío (0 bytes). URI: ${jpgUri.substring(0, 60)}...`
+            );
+          }
+
+          console.log(
+            `✅ ArrayBuffer validado: ${arrayBuffer.byteLength} bytes`
+          );
+
+          // Siempre usar extensión .jpg ya que convertimos todas las imágenes
+          const timestamp = Date.now() + i; // Agregar índice para evitar colisiones
+
+          // Nueva ruta: solicitudes/{user_id}/{solicitud_id}/{timestamp}_{i}.jpg
+          const fileName = `${userId}/${solicitudId}/${timestamp}_${i}.jpg`;
+
+          console.log(
+            `📤 Subiendo imagen ${i + 1} a: ${fileName} (${
+              arrayBuffer.byteLength
             } bytes)`
           );
 
-          if (
-            fileData.metadata?.size === "0" ||
-            fileData.metadata?.size === 0
-          ) {
-            console.error(`❌ ADVERTENCIA: El archivo subido tiene 0 bytes!`);
-            // Intentar eliminar el archivo corrupto
-            await supabase.storage.from("solicitudes").remove([fileName]);
-            continue;
+          // Subir a Storage usando ArrayBuffer directamente
+          const { data: uploadData, error: uploadError } =
+            await supabase.storage
+              .from("solicitudes")
+              .upload(fileName, arrayBuffer, {
+                cacheControl: "3600",
+                contentType: "image/jpeg", // Siempre JPEG
+                upsert: false, // No sobrescribir si existe
+              });
+
+          if (uploadError) {
+            console.error(`❌ Error al subir imagen ${i + 1}:`, uploadError);
+
+            // Detectar si es error de sesión/RLS
+            if (
+              uploadError.message?.includes("row-level security") ||
+              uploadError.message?.includes("JWT") ||
+              uploadError.message?.includes("unauthorized")
+            ) {
+              throw new Error(
+                `Error de seguridad/sesión: ${uploadError.message}`
+              );
+            }
+
+            throw new Error(
+              `Error de Supabase: ${uploadError.message || "Error desconocido"}`
+            );
+          }
+
+          if (!uploadData) {
+            throw new Error("No se recibió confirmación de carga");
+          }
+
+          console.log(`✅ Imagen ${i + 1} subida exitosamente: ${fileName}`);
+
+          // Verificar que el archivo se subió correctamente consultando su metadata
+          const { data: fileInfo, error: infoError } = await supabase.storage
+            .from("solicitudes")
+            .list(`${userId}/${solicitudId}`, {
+              search: `${timestamp}_${i}.jpg`,
+            });
+
+          if (infoError) {
+            console.warn(`⚠️ No se pudo verificar el archivo:`, infoError);
+          } else if (fileInfo && fileInfo.length > 0) {
+            const fileData = fileInfo[0];
+            const fileSize = fileData.metadata?.size || 0;
+
+            console.log(
+              `✅ Archivo verificado: ${fileData.name} (${fileSize} bytes)`
+            );
+
+            if (fileSize === 0 || fileSize === "0") {
+              throw new Error(
+                "El archivo subido está vacío (0 bytes) - corrupto"
+              );
+            }
+          }
+
+          // Obtener URL pública
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("solicitudes").getPublicUrl(fileName);
+
+          console.log(
+            `✅ URL pública generada para imagen ${i + 1}: ${publicUrl}`
+          );
+
+          uploadedUrls.push(publicUrl);
+          uploadSuccess = true;
+        } catch (error) {
+          retryCount++;
+          const errorMessage =
+            error instanceof Error ? error.message : "Error desconocido";
+
+          if (retryCount > maxRetries) {
+            console.error(
+              `❌ Imagen ${i + 1} falló después de ${maxRetries} reintentos`
+            );
+            failedImages.push({
+              index: i + 1,
+              reason: errorMessage,
+            });
+          } else {
+            console.warn(
+              `⚠️ Error en imagen ${i + 1}: ${errorMessage}. Reintentando...`
+            );
           }
         }
-
-        // Obtener URL pública
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("solicitudes").getPublicUrl(fileName);
-
-        console.log(
-          `✅ URL pública generada para imagen ${i + 1}: ${publicUrl}`
-        );
-
-        uploadedUrls.push(publicUrl);
-      } catch (error) {
-        console.error(`❌ Error procesando imagen ${i + 1}:`, error);
-        console.error(`URI de la imagen: ${uri.substring(0, 50)}...`);
-        // Continuar con la siguiente imagen en lugar de fallar completamente
-        continue;
       }
     }
+
+    // Reportar si hubo fallos
+    if (failedImages.length > 0) {
+      const failureMessage = failedImages
+        .map((f) => `Imagen ${f.index}: ${f.reason}`)
+        .join("\n");
+
+      console.warn(
+        `⚠️ Se subieron ${uploadedUrls.length}/${imageUris.length} imágenes. Fallos:\n${failureMessage}`
+      );
+
+      // Si algunas imágenes fallaron pero otras tuvieron éxito, continuar
+      if (uploadedUrls.length === 0) {
+        return {
+          urls: [],
+          error: {
+            message: `No se pudieron subir las imágenes:\n${failureMessage}`,
+          },
+        };
+      }
+    }
+
+    console.log(
+      `✅ Subida completada: ${uploadedUrls.length}/${imageUris.length} imágenes`
+    );
 
     return {
       urls: uploadedUrls,
       error: null,
     };
   } catch (error) {
-    console.error("Error en uploadSolicitudImages:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Error desconocido";
+    console.error("❌ CRÍTICO - Error en uploadSolicitudImages:", errorMessage);
+
     return {
       urls: [],
       error: {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Error desconocido al subir imágenes",
+        message: `Error al subir imágenes: ${errorMessage}`,
       },
     };
   }
@@ -281,24 +476,62 @@ export const pickMultipleImages = async (): Promise<string[]> => {
 
 /**
  * Toma una foto con la cámara y la convierte a JPG
+ *
+ * ⚠️ IMPORTANTE: Las fotos de cámara tienen características especiales:
+ * - Pueden venir en HEIC (iPhone) o JPEG (Android)
+ * - El archivo temporal se crea lentamente
+ * - Necesita mas tiempo para escribirse que las de galería
  */
 export const takePhoto = async (): Promise<string | null> => {
-  const hasPermission = await requestImagePermissions();
-  if (!hasPermission) {
-    throw new Error("No se otorgaron permisos para acceder a la cámara");
+  try {
+    const hasPermission = await requestImagePermissions();
+    if (!hasPermission) {
+      throw new Error("No se otorgaron permisos para acceder a la cámara");
+    }
+
+    console.log("📸 Abriendo cámara...");
+
+    // En Android, usar allowsEditing para forzar que se copie el archivo a una ubicación segura
+    // Esto evita problemas con archivos temporales en el directorio de caché
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+      exif: false, // No incluir datos EXIF (pueden causar problemas en React Native)
+      allowsEditing: Platform.OS === "android", // Forzar copia en Android
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      console.log("ℹ️ Usuario canceló la captura de foto");
+      return null;
+    }
+
+    console.log(
+      `✅ Foto capturada: ${result.assets[0].uri.substring(0, 50)}...`
+    );
+
+    // En Android, esperar un poco después de que la cámara cierre
+    // antes de intentar procesar la foto
+    if (Platform.OS === "android") {
+      console.log(`⏳ Android: esperando 200ms después de captura...`);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    // Convertir la foto a JPG
+    // Las fotos de cámara necesitan más tiempo para convertirse (especialmente en Android)
+    const convertedUri = await convertToJPG(result.assets[0].uri);
+
+    if (!convertedUri) {
+      throw new Error("No se pudo convertir la foto a JPG");
+    }
+
+    console.log(
+      `✅ Foto lista para subir: ${convertedUri.substring(0, 50)}...`
+    );
+    return convertedUri;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Error al tomar foto: ${errorMsg}`);
+    throw error;
   }
-
-  const result = await ImagePicker.launchCameraAsync({
-    quality: 0.8,
-  });
-
-  if (result.canceled || !result.assets || result.assets.length === 0) {
-    return null;
-  }
-
-  // Convertir la foto a JPG
-  const convertedUri = await convertToJPG(result.assets[0].uri);
-  return convertedUri;
 };
 
 /**

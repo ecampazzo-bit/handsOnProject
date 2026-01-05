@@ -43,25 +43,67 @@ export const SolicitarPresupuestoScreen: React.FC = () => {
 
   const handlePickImages = async () => {
     try {
+      console.log("📷 Abriendo galería de imágenes...");
       const selectedImages = await pickMultipleImages();
+
       if (selectedImages.length > 0) {
+        console.log(`✅ Se seleccionaron ${selectedImages.length} imagen(es)`);
         setFotos([...fotos, ...selectedImages]);
+        Alert.alert(
+          "Éxito",
+          `Se agregaron ${selectedImages.length} imagen(es)`
+        );
+      } else {
+        console.log("ℹ️ Usuario canceló la selección de imágenes");
       }
     } catch (error) {
-      Alert.alert("Error", "No se pudieron seleccionar las imágenes");
-      console.error(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error("❌ Error al seleccionar imágenes:", errorMessage);
+
+      // Mostrar mensaje específico según el tipo de error
+      if (errorMessage.includes("permisos")) {
+        Alert.alert(
+          "Permisos requeridos",
+          "La app necesita acceso a tu galería. Por favor, habilita los permisos en Ajustes.",
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert(
+          "Error",
+          `No se pudieron seleccionar las imágenes: ${errorMessage}`
+        );
+      }
     }
   };
 
   const handleTakePhoto = async () => {
     try {
+      console.log("📸 Abriendo cámara...");
       const photo = await takePhoto();
+
       if (photo) {
+        console.log("✅ Foto capturada exitosamente");
         setFotos([...fotos, photo]);
+        Alert.alert("Éxito", "Foto agregada a la solicitud");
+      } else {
+        console.log("ℹ️ Usuario canceló la captura de foto");
       }
     } catch (error) {
-      Alert.alert("Error", "No se pudo tomar la foto");
-      console.error(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error("❌ Error al tomar foto:", errorMessage);
+
+      // Mostrar mensaje específico según el tipo de error
+      if (errorMessage.includes("permisos")) {
+        Alert.alert(
+          "Permisos requeridos",
+          "La app necesita acceso a tu cámara. Por favor, habilita los permisos en Ajustes.",
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert("Error", `No se pudo tomar la foto: ${errorMessage}`);
+      }
     }
   };
 
@@ -80,19 +122,35 @@ export const SolicitarPresupuestoScreen: React.FC = () => {
 
     setLoading(true);
     try {
+      console.log("=== Iniciando envío de solicitud ===");
+
       // Obtener el usuario actual
       const {
         data: { user },
       } = await (
         await import("../services/supabaseClient")
       ).supabase.auth.getUser();
+
       if (!user) {
-        Alert.alert("Error", "No se pudo identificar al usuario");
+        console.error("❌ No se pudo obtener el usuario");
+        Alert.alert(
+          "Error de autenticación",
+          "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.navigate("Login"),
+            },
+          ]
+        );
         setLoading(false);
         return;
       }
 
+      console.log(`✅ Usuario obtenido: ${user.id}`);
+
       // Crear la solicitud primero (sin fotos)
+      console.log("📝 Creando solicitud en base de datos...");
       const { solicitudId, error: createError } = await createSolicitud(
         user.id,
         servicioId,
@@ -102,48 +160,76 @@ export const SolicitarPresupuestoScreen: React.FC = () => {
       );
 
       if (createError || !solicitudId) {
+        console.error("❌ Error al crear solicitud:", createError);
         Alert.alert(
-          "Error",
-          createError?.message || "No se pudo crear la solicitud"
+          "Error al crear solicitud",
+          createError?.message ||
+            "No se pudo crear la solicitud. Intenta nuevamente."
         );
         setLoading(false);
         return;
       }
 
+      console.log(`✅ Solicitud creada con ID: ${solicitudId}`);
+
       // Si hay fotos, subirlas
       let fotosUrls: string[] = [];
       if (fotos.length > 0) {
+        console.log(`📸 Iniciando carga de ${fotos.length} imagen(es)...`);
         const { urls, error: uploadError } = await uploadSolicitudImages(
           solicitudId,
           fotos
         );
 
         if (uploadError) {
-          console.error("Error al subir fotos:", uploadError);
-          // Continuar aunque falle la subida de fotos
+          console.error("⚠️ Error al subir fotos:", uploadError.message);
+
+          // Mostrar alerta pero permitir continuar si al menos la solicitud se creó
+          Alert.alert(
+            "Aviso",
+            `La solicitud se creó, pero hubo un problema al subir las fotos: ${uploadError.message}\n\nPuedes intentar agregarlas después.`,
+            [{ text: "Continuar" }]
+          );
+
+          // Continuar de todas formas
+          fotosUrls = [];
         } else {
           fotosUrls = urls;
+          console.log(`✅ Se subieron ${urls.length} imagen(es)`);
 
           // Actualizar la solicitud con las URLs de las fotos
-          const { error: updateError } = await (
-            await import("../services/supabaseClient")
-          ).supabase
-            .from("solicitudes_servicio")
-            .update({ fotos_urls: fotosUrls })
-            .eq("id", solicitudId);
+          if (fotosUrls.length > 0) {
+            console.log("🔄 Actualizando solicitud con URLs de fotos...");
+            const { error: updateError } = await (
+              await import("../services/supabaseClient")
+            ).supabase
+              .from("solicitudes_servicio")
+              .update({ fotos_urls: fotosUrls })
+              .eq("id", solicitudId);
 
-          if (updateError) {
-            console.error(
-              "Error al actualizar solicitud con fotos:",
-              updateError
-            );
+            if (updateError) {
+              console.error(
+                "⚠️ Error al actualizar solicitud con fotos:",
+                updateError
+              );
+              // No es crítico, continuar de todas formas
+            } else {
+              console.log("✅ Solicitud actualizada con fotos");
+            }
           }
         }
       }
 
+      console.log("✅ ¡Solicitud enviada exitosamente!");
       Alert.alert(
         "¡Solicitud enviada!",
-        `Se envió la solicitud de presupuesto a ${prestadorIds.length} prestador(es).`,
+        `Se envió la solicitud de presupuesto a ${
+          prestadorIds.length
+        } prestador${prestadorIds.length > 1 ? "es" : ""}${
+          fotosUrls.length > 0
+            ? ` con ${fotosUrls.length} foto${fotosUrls.length > 1 ? "s" : ""}`
+            : ""
+        }.`,
         [
           {
             text: "OK",
@@ -154,8 +240,14 @@ export const SolicitarPresupuestoScreen: React.FC = () => {
         ]
       );
     } catch (error) {
-      console.error("Error al enviar solicitud:", error);
-      Alert.alert("Error", "Ocurrió un error al enviar la solicitud");
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error("❌ CRÍTICO - Error al enviar solicitud:", errorMessage);
+
+      Alert.alert(
+        "Error inesperado",
+        `Ocurrió un error: ${errorMessage}\n\nSi el problema persiste, intenta iniciar sesión nuevamente.`
+      );
     } finally {
       setLoading(false);
     }

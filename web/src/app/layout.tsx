@@ -20,6 +20,10 @@ export default function RootLayout({
       <head>
         {/* Fallback de estilos en producción (Tailwind precompilado) */}
         <link rel="stylesheet" href="/styles.css" />
+        {/* Meta tags para evitar caché en páginas de recuperación */}
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
       </head>
       <body className={inter.className}>{children}</body>
     </html>

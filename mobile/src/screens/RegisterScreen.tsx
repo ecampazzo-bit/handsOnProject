@@ -149,11 +149,16 @@ export const RegisterScreen: React.FC = () => {
             // Pequeño delay para asegurar que el Alert se cierre antes
             await new Promise((resolve) => setTimeout(resolve, 100));
             const result = await takePhotoWithCamera();
+            // Espera adicional para Android después de capturar (el archivo necesita tiempo para escribirse)
+            if (Platform.OS === "android") {
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
             if (!result.canceled && result.assets && result.assets[0]) {
               // Esperar un momento antes de procesar para que la app esté estable
+              const processDelayMs = Platform.OS === "android" ? 800 : 500;
               setTimeout(async () => {
                 await processImage(result.assets[0].uri);
-              }, 500);
+              }, processDelayMs);
             }
           } catch (error: any) {
             console.error("Error al tomar foto:", error);
@@ -174,7 +179,7 @@ export const RegisterScreen: React.FC = () => {
 
     processingImageRef.current = true;
     setUploadingPhoto(true);
-    
+
     try {
       // Esperar un momento para asegurar que la app está en foreground
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -188,7 +193,7 @@ export const RegisterScreen: React.FC = () => {
           format: ImageManipulator.SaveFormat.JPEG,
         }
       );
-      
+
       setProfileImageUri(manipulatedImage.uri);
     } catch (error: any) {
       console.error("Error procesando imagen:", error);
@@ -867,7 +872,9 @@ export const RegisterScreen: React.FC = () => {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          (step === 1 || step === 2) && { paddingTop: Math.max(insets.top + 20, 80) },
+          (step === 1 || step === 2) && {
+            paddingTop: Math.max(insets.top + 20, 80),
+          },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -881,7 +888,7 @@ export const RegisterScreen: React.FC = () => {
           {step === 2 && renderStep2()}
           {step === 3 && renderStep3()}
         </View>
-        
+
         <TouchableOpacity
           onPress={() => navigation.navigate("Login")}
           style={styles.backToLoginButtonBottom}

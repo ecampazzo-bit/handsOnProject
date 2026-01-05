@@ -827,7 +827,9 @@ export const saveUserServices = async (
           );
           return null;
         }
-        console.log(`✓ Servicio encontrado: "${servicio.nombre}" -> ID: ${servicioId}`);
+        console.log(
+          `✓ Servicio encontrado: "${servicio.nombre}" -> ID: ${servicioId}`
+        );
         return { servicio_id: servicioId };
       })
       .filter((s) => s !== null) as Array<{ servicio_id: number }>;

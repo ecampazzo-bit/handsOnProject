@@ -169,6 +169,7 @@ export default function TrabajosResumen() {
               width={120}
               height={72}
               className="h-auto"
+              loading="eager"
             />
             <h1 className="text-2xl font-bold text-gray-900">Resumen de Trabajos</h1>
           </div>

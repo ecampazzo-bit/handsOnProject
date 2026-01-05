@@ -12,13 +12,14 @@ CREATE OR REPLACE FUNCTION public.is_admin(user_id uuid)
 RETURNS boolean AS $$
 BEGIN
   -- Verificar si el email contiene '@admin.' o es el email de admin
+  -- Buscar en auth.users donde está el email real de autenticación
   RETURN EXISTS (
     SELECT 1
-    FROM public.users
+    FROM auth.users
     WHERE id = user_id
       AND (
         email LIKE '%@admin.%'
-        OR email = 'admin@ofisi.com'
+        OR email = 'admin@ofisi.ar'
       )
   );
 END;

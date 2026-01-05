@@ -42,55 +42,105 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
       
-      // Obtener usuarios con información de prestadores usando supabaseAdmin para bypass RLS
-      const { data: usersData, error: usersError } = await supabaseAdmin
-        .from('users')
-        .select(`
-          id,
-          email,
-          nombre,
-          apellido,
-          telefono,
-          tipo_usuario,
-          activo,
-          verificado,
-          created_at
-        `)
-        .order('created_at', { ascending: false })
+      console.log('=== Cargando usuarios ===')
+      
+      // Intentar primero con la función que hace bypass de RLS
+      let usersData = null;
+      let usersError = null;
+      
+      try {
+        const { data: functionData, error: functionError } = await supabaseAdmin
+          .rpc('get_all_users');
+        
+        if (!functionError && functionData) {
+          usersData = functionData;
+          console.log('Usuarios obtenidos mediante función RPC:', usersData.length);
+        } else {
+          console.warn('Error al usar función RPC, intentando consulta directa:', functionError);
+          // Fallback a consulta directa
+          const { data: directData, error: directError } = await supabaseAdmin
+            .from('users')
+            .select(`
+              id,
+              email,
+              nombre,
+              apellido,
+              telefono,
+              tipo_usuario,
+              activo,
+              verificado,
+              created_at
+            `)
+            .order('created_at', { ascending: false });
+          
+          usersData = directData;
+          usersError = directError;
+        }
+      } catch (err: any) {
+        console.error('Error en carga de usuarios:', err);
+        usersError = err;
+      }
 
-      if (usersError) throw usersError
+      console.log('Resultado de consulta users:', { usersData, usersError })
+
+      if (usersError) {
+        console.error('Error al obtener usuarios:', usersError)
+        throw usersError
+      }
+
+      if (!usersData || usersData.length === 0) {
+        console.warn('No se encontraron usuarios en la base de datos')
+        setUsers([])
+        setStats({ total: 0, activos: 0, inactivos: 0, prestadores: 0, clientes: 0 })
+        return
+      }
 
       // Obtener IDs de prestadores
-      const { data: prestadoresData } = await supabaseAdmin
+      const { data: prestadoresData, error: prestadoresError } = await supabaseAdmin
         .from('prestadores')
         .select('id, usuario_id')
+
+      if (prestadoresError) {
+        console.warn('Error al obtener prestadores (continuando):', prestadoresError)
+      }
 
       const prestadoresMap = new Map(
         prestadoresData?.map(p => [p.usuario_id, p.id]) || []
       )
 
-      const usersWithPrestador = (usersData || []).map(user => ({
+      const usersWithPrestador = (usersData || []).map((user: any) => ({
         ...user,
         prestador_id: prestadoresMap.get(user.id),
       }))
+
+      console.log('Usuarios procesados:', usersWithPrestador.length)
 
       setUsers(usersWithPrestador as User[])
 
       // Calcular estadísticas
       const total = usersWithPrestador.length
-      const activos = usersWithPrestador.filter(u => u.activo).length
+      const activos = usersWithPrestador.filter((u: any) => u.activo).length
       const inactivos = total - activos
-      const prestadores = usersWithPrestador.filter(u => 
+      const prestadores = usersWithPrestador.filter((u: any) => 
         u.tipo_usuario === 'prestador' || u.tipo_usuario === 'ambos'
       ).length
-      const clientes = usersWithPrestador.filter(u => 
+      const clientes = usersWithPrestador.filter((u: any) => 
         u.tipo_usuario === 'cliente' || u.tipo_usuario === 'ambos'
       ).length
 
       setStats({ total, activos, inactivos, prestadores, clientes })
-    } catch (error) {
-      console.error('Error loading users:', error)
-      alert('Error al cargar usuarios')
+      console.log('Estadísticas calculadas:', { total, activos, inactivos, prestadores, clientes })
+    } catch (error: any) {
+      console.error('Error completo al cargar usuarios:', error)
+      console.error('Detalles del error:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+      })
+      alert(`Error al cargar usuarios: ${error?.message || 'Error desconocido'}`)
+      setUsers([])
+      setStats({ total: 0, activos: 0, inactivos: 0, prestadores: 0, clientes: 0 })
     } finally {
       setLoading(false)
     }
@@ -98,28 +148,76 @@ export default function AdminDashboard() {
 
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      // Usar supabaseAdmin para bypass RLS
-      const { error } = await supabaseAdmin
-        .from('users')
-        .update({ activo: !currentStatus })
-        .eq('id', userId)
+      const newStatus = !currentStatus
+      console.log('=== Actualizando estado de usuario ===')
+      console.log('User ID:', userId)
+      console.log('Estado actual:', currentStatus)
+      console.log('Nuevo estado:', newStatus)
 
-      if (error) throw error
+      // Intentar primero con la función RPC (más confiable)
+      let updateSuccess = false
+      let updateError = null
 
-      // Actualizar estado local
-      setUsers(users.map(user =>
-        user.id === userId ? { ...user, activo: !currentStatus } : user
-      ))
+      try {
+        const { data: rpcData, error: rpcError } = await supabaseAdmin
+          .rpc('update_user_status', {
+            p_user_id: userId,
+            p_activo: newStatus
+          })
 
-      // Recalcular estadísticas
-      const updatedUsers = users.map(user =>
-        user.id === userId ? { ...user, activo: !currentStatus } : user
-      )
-      const activos = updatedUsers.filter(u => u.activo).length
-      setStats({ ...stats, activos, inactivos: updatedUsers.length - activos })
-    } catch (error) {
+        console.log('Resultado de RPC update_user_status:', { rpcData, rpcError })
+
+        if (!rpcError && rpcData && rpcData.success) {
+          updateSuccess = true
+          console.log('Actualización exitosa mediante RPC:', rpcData)
+        } else {
+          updateError = rpcError
+          console.warn('Error en RPC, intentando método alternativo:', rpcError)
+        }
+      } catch (rpcErr: any) {
+        console.warn('Error al llamar RPC, intentando método alternativo:', rpcErr)
+        updateError = rpcErr
+      }
+
+      // Fallback: usar update directo si RPC falla
+      if (!updateSuccess) {
+        const { data, error } = await supabaseAdmin
+          .from('users')
+          .update({ activo: newStatus })
+          .eq('id', userId)
+          .select()
+
+        console.log('Resultado de actualización directa:', { data, error })
+
+        if (error) {
+          console.error('Error al actualizar:', error)
+          throw error
+        }
+
+        if (!data || data.length === 0) {
+          console.warn('No se recibió confirmación de la actualización')
+          throw new Error('No se pudo actualizar el usuario')
+        }
+
+        const updatedUser = data[0]
+        console.log('Usuario actualizado:', updatedUser)
+
+        // Verificar que el estado se haya guardado correctamente
+        if (updatedUser.activo !== newStatus) {
+          console.error('El estado no se guardó correctamente. Esperado:', newStatus, 'Obtenido:', updatedUser.activo)
+          throw new Error('El estado no se guardó correctamente')
+        }
+      }
+
+      // Recargar usuarios desde la base de datos para asegurar que tenemos el estado real
+      await loadUsers()
+
+      console.log('Estado actualizado exitosamente')
+    } catch (error: any) {
       console.error('Error updating user status:', error)
-      alert('Error al actualizar el estado del usuario')
+      alert(`Error al actualizar el estado del usuario: ${error?.message || 'Error desconocido'}`)
+      // Recargar usuarios para mostrar el estado real
+      await loadUsers()
     }
   }
 
@@ -159,10 +257,17 @@ export default function AdminDashboard() {
               width={120}
               height={72}
               className="h-auto"
+              loading="eager"
             />
             <h1 className="text-2xl font-bold text-gray-900">Dashboard de Administración</h1>
           </div>
           <div className="flex items-center gap-4">
+            <Link
+              href="/admin/estadisticas"
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            >
+              Estadísticas
+            </Link>
             <Link
               href="/admin/categorias"
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"

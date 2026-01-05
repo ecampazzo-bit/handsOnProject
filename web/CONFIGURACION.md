@@ -8,7 +8,10 @@ Crea un archivo `.env.local` en la raíz de `web/` con las siguientes variables:
 NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key_aqui
 NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key_aqui
+NEXT_PUBLIC_SITE_URL=https://ofisi.ar
 ```
+
+**Nota:** `NEXT_PUBLIC_SITE_URL` es necesario para la funcionalidad de recuperación de contraseña. En desarrollo local, usa `http://localhost:3000`.
 
 ### Dónde encontrar las credenciales:
 

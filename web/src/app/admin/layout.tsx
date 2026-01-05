@@ -30,6 +30,21 @@ export default function AdminLayout({
           return
         }
 
+        // Verificar que el usuario esté activo
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("activo")
+          .eq("id", session.user.id)
+          .single();
+
+        if (userError || !userData || userData.activo === false) {
+          await supabase.auth.signOut();
+          sessionStorage.removeItem('admin_authenticated');
+          sessionStorage.removeItem('admin_user_id');
+          router.push('/admin/login')
+          return
+        }
+
         // Verificar si es admin
         const adminAuth = sessionStorage.getItem('admin_authenticated')
         if (!adminAuth) {

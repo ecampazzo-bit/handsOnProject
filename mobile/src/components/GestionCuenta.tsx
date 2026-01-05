@@ -14,6 +14,7 @@ import {
   Image,
   Modal,
   FlatList,
+  Platform,
 } from "react-native";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { supabase } from "../services/supabaseClient";
@@ -461,6 +462,10 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
         onPress: async () => {
           try {
             const result = await takePhotoWithCamera();
+            // Espera para Android después de capturar (el archivo necesita tiempo para escribirse)
+            if (Platform.OS === "android") {
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
             if (!result.canceled && result.assets && result.assets[0]) {
               await uploadPhoto(result.assets[0].uri);
             }

@@ -2,6 +2,7 @@ import { supabase } from "./supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
+import { Platform } from "react-native";
 
 export interface ProfilePictureResult {
   url: string | null;
@@ -39,6 +40,7 @@ export const pickImageFromGallery =
 
 /**
  * Toma una foto con la cámara
+ * En Android, habilita allowsEditing para forzar copia a ubicación segura
  */
 export const takePhotoWithCamera =
   async (): Promise<ImagePicker.ImagePickerResult> => {
@@ -48,7 +50,7 @@ export const takePhotoWithCamera =
     }
 
     return await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
+      allowsEditing: Platform.OS === "android",
       aspect: [1, 1],
       quality: 0.8,
       exif: false,
@@ -64,7 +66,24 @@ const convertToJPG = async (uri: string): Promise<string> => {
       compress: 0.8,
       format: ImageManipulator.SaveFormat.JPEG,
     });
-    return manipResult.uri;
+
+    const newUri = manipResult.uri;
+    console.log(`✅ Avatar convertido a JPG: ${newUri.substring(0, 40)}...`);
+
+    // ⚠️ IMPORTANTE: Esperar un poco para que el archivo se escriba completamente
+    // Android necesita más tiempo que iOS
+    const waitTime = Platform.OS === "android" ? 500 : 300;
+    console.log(`⏳ Esperando ${waitTime}ms para que el archivo se escriba...`);
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+    // Verificar que el archivo exista
+    const fileInfo = await FileSystem.getInfoAsync(newUri);
+    if (!fileInfo.exists) {
+      console.warn(`⚠️ Archivo temporal no existe: ${newUri}`);
+      return uri;
+    }
+
+    return newUri;
   } catch (error) {
     console.error("Error al convertir imagen a JPG:", error);
     return uri;
@@ -73,67 +92,115 @@ const convertToJPG = async (uri: string): Promise<string> => {
 
 /**
  * Convierte una URI de imagen a ArrayBuffer para React Native
+ * Con reintentos inteligentes para Android
  */
-const uriToArrayBuffer = async (uri: string): Promise<ArrayBuffer> => {
-  try {
-    console.log(`📤 Leyendo archivo de avatar: ${uri.substring(0, 50)}...`);
+const uriToArrayBuffer = async (
+  uri: string,
+  maxRetries: number = Platform.OS === "android" ? 5 : 3
+): Promise<ArrayBuffer> => {
+  const tryRead = async (attempt: number): Promise<ArrayBuffer> => {
+    try {
+      console.log(
+        `📤 Leyendo archivo de avatar (intento ${attempt}/${maxRetries}): ${uri.substring(
+          0,
+          50
+        )}...`
+      );
 
-    const fileInfo = await FileSystem.getInfoAsync(uri);
-    if (!fileInfo.exists) {
-      throw new Error(`El archivo no existe: ${uri}`);
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (!fileInfo.exists) {
+        throw new Error(`El archivo no existe: ${uri}`);
+      }
+
+      console.log(`📁 Archivo encontrado: ${fileInfo.size} bytes`);
+
+      // Si el archivo está vacío, reintentar
+      if (fileInfo.size === 0 && attempt < maxRetries) {
+        const waitMs = Platform.OS === "android" ? 800 : 500;
+        console.warn(
+          `⚠️ Archivo vacío (0 bytes), esperando ${waitMs}ms e intentando de nuevo...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        return tryRead(attempt + 1);
+      }
+
+      if (fileInfo.size === 0) {
+        throw new Error(
+          `El archivo está vacío (0 bytes) después de ${maxRetries} intentos`
+        );
+      }
+
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: "base64" as any,
+      });
+
+      if (!base64 || base64.length === 0) {
+        if (attempt < maxRetries) {
+          const waitMs = Platform.OS === "android" ? 800 : 500;
+          console.warn(
+            `⚠️ Base64 vacío, esperando ${waitMs}ms e intentando de nuevo...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+          return tryRead(attempt + 1);
+        }
+        throw new Error(
+          `El archivo está vacío o no se pudo leer después de ${maxRetries} intentos`
+        );
+      }
+
+      console.log(`✅ Archivo leído: ${base64.length} caracteres base64`);
+
+      // Convertir base64 a ArrayBuffer
+      const binaryString =
+        typeof atob !== "undefined"
+          ? atob(base64)
+          : (() => {
+              const chars =
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+              let output = "";
+              let i = 0;
+              const cleanBase64 = base64.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+              while (i < cleanBase64.length) {
+                const enc1 = chars.indexOf(cleanBase64.charAt(i++));
+                const enc2 = chars.indexOf(cleanBase64.charAt(i++));
+                const enc3 = chars.indexOf(cleanBase64.charAt(i++));
+                const enc4 = chars.indexOf(cleanBase64.charAt(i++));
+                const chr1 = (enc1 << 2) | (enc2 >> 4);
+                const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+                const chr3 = ((enc3 & 3) << 6) | enc4;
+                output += String.fromCharCode(chr1);
+                if (enc3 !== 64) output += String.fromCharCode(chr2);
+                if (enc4 !== 64) output += String.fromCharCode(chr3);
+              }
+              return output;
+            })();
+
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      console.log(`✅ ArrayBuffer creado: ${bytes.buffer.byteLength} bytes`);
+      return bytes.buffer;
+    } catch (error) {
+      if (attempt < maxRetries) {
+        console.warn(
+          `⚠️ Error al leer (intento ${attempt}/${maxRetries}):`,
+          error instanceof Error ? error.message : error
+        );
+        const waitMs = Platform.OS === "android" ? 800 : 500;
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        return tryRead(attempt + 1);
+      }
+      console.error(
+        `❌ Error al leer archivo de avatar después de ${maxRetries} intentos:`,
+        error
+      );
+      throw error;
     }
+  };
 
-    console.log(`📁 Archivo encontrado: ${fileInfo.size} bytes`);
-
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: "base64" as any,
-    });
-
-    if (!base64 || base64.length === 0) {
-      throw new Error(`El archivo está vacío o no se pudo leer`);
-    }
-
-    console.log(`✅ Archivo leído: ${base64.length} caracteres base64`);
-
-    // Convertir base64 a ArrayBuffer
-    const binaryString =
-      typeof atob !== "undefined"
-        ? atob(base64)
-        : (() => {
-            const chars =
-              "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-            let output = "";
-            let i = 0;
-            const cleanBase64 = base64.replace(/[^A-Za-z0-9\+\/\=]/g, "");
-            while (i < cleanBase64.length) {
-              const enc1 = chars.indexOf(cleanBase64.charAt(i++));
-              const enc2 = chars.indexOf(cleanBase64.charAt(i++));
-              const enc3 = chars.indexOf(cleanBase64.charAt(i++));
-              const enc4 = chars.indexOf(cleanBase64.charAt(i++));
-              const chr1 = (enc1 << 2) | (enc2 >> 4);
-              const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-              const chr3 = ((enc3 & 3) << 6) | enc4;
-              output += String.fromCharCode(chr1);
-              if (enc3 !== 64) output += String.fromCharCode(chr2);
-              if (enc4 !== 64) output += String.fromCharCode(chr3);
-            }
-            return output;
-          })();
-
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    console.log(`✅ ArrayBuffer creado: ${bytes.buffer.byteLength} bytes`);
-    return bytes.buffer;
-  } catch (error) {
-    console.error(`❌ Error al leer archivo de avatar:`, error);
-    if (error instanceof Error) {
-      console.error(`Mensaje: ${error.message}`);
-    }
-    throw error;
-  }
+  return tryRead(1);
 };
 
 /**

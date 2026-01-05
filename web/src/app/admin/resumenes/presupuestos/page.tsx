@@ -160,6 +160,7 @@ export default function PresupuestosResumen() {
               width={120}
               height={72}
               className="h-auto"
+              loading="eager"
             />
             <h1 className="text-2xl font-bold text-gray-900">Resumen de Presupuestos</h1>
           </div>

@@ -202,6 +202,7 @@ export default function CategoriasPage() {
                 width={120}
                 height={72}
                 className="h-auto"
+                loading="eager"
               />
               <h1 className="text-xl sm:text-2xl font-bold text-black">Gestión de Categorías</h1>
             </div>
