@@ -126,6 +126,7 @@ export const signUp = async (
     console.log("=== signUp - Creando usuario en Supabase Auth ===");
     console.log("Email:", email);
     console.log("Password:", passwordParam ? "***" : "undefined");
+    console.log("Supabase URL:", supabase.supabaseUrl);
 
     let authData, authError;
     let retries = 0;
@@ -191,6 +192,7 @@ export const signUp = async (
             error: {
               message:
                 "Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.",
+              code: "NETWORK_ERROR",
             },
           };
         }
@@ -201,6 +203,7 @@ export const signUp = async (
             message:
               networkError?.message ||
               "Error de conexión. Por favor, intenta nuevamente.",
+            code: networkError?.code || "UNKNOWN_ERROR",
           },
         };
       }
@@ -224,7 +227,7 @@ export const signUp = async (
       return { user: null, error: authError };
     }
 
-    if (!authData || !authData.user) {
+    if (!authData.user) {
       return { user: null, error: { message: "No se pudo crear el usuario" } };
     }
 
@@ -358,9 +361,9 @@ export const signUp = async (
 
     // La función retorna un jsonb, necesitamos convertirlo
     // Supabase RPC retorna el valor directamente, no en un objeto data
-    const insertedUserData = userDataResult as any;
+    const userData = userDataResult as any;
 
-    if (!insertedUserData) {
+    if (!userData) {
       return {
         user: null,
         error: { message: "No se recibieron datos del usuario" },
@@ -415,7 +418,7 @@ export const signUp = async (
     }
 
     // La función ya retorna los datos sin password, así que podemos usarlos directamente
-    return { user: insertedUserData as User, error: null };
+    return { user: userData as User, error: null };
   } catch (error) {
     return {
       user: null,
@@ -567,13 +570,6 @@ export const signIn = async (
       };
     }
 
-    if (!data || !data.user) {
-      return {
-        user: null,
-        error: { message: "No se pudo iniciar sesión" },
-      };
-    }
-
     if (data.session) {
       await AsyncStorage.setItem(
         USER_SESSION_KEY,
@@ -691,10 +687,8 @@ export const getCurrentUser = async (): Promise<{
 
     // Si no hay sesión activa, intentar restaurar desde AsyncStorage
     if (sessionError || !session) {
-      console.log(
-        "No hay sesión activa, intentando restaurar desde AsyncStorage..."
-      );
-
+      console.log("No hay sesión activa, intentando restaurar desde AsyncStorage...");
+      
       try {
         const savedSession = await AsyncStorage.getItem(USER_SESSION_KEY);
         if (savedSession) {
@@ -722,10 +716,7 @@ export const getCurrentUser = async (): Promise<{
           return { user: null, error: { message: "No hay sesión activa" } };
         }
       } catch (restoreError) {
-        console.error(
-          "Error al restaurar sesión en getCurrentUser:",
-          restoreError
-        );
+        console.error("Error al restaurar sesión en getCurrentUser:", restoreError);
         return { user: null, error: { message: "No hay sesión activa" } };
       }
     }
