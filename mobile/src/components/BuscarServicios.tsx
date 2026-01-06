@@ -94,7 +94,9 @@ export const BuscarServicios: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [selectedCategoria, setSelectedCategoria] = useState<number | null>(null);
+  const [selectedCategoria, setSelectedCategoria] = useState<number | null>(
+    null
+  );
   const [prestadores, setPrestadores] = useState<Prestador[]>([]);
   const [topPrestadores, setTopPrestadores] = useState<Prestador[]>([]);
   const [loadingTop, setLoadingTop] = useState(false);
@@ -170,12 +172,13 @@ export const BuscarServicios: React.FC = () => {
     setLoadingTop(true);
     try {
       console.log("🔍 Cargando top prestadores...");
-      
+
       // Obtener prestadores con su información de usuario y calificación
       // La calificación está en la tabla users, no en prestadores
       const { data: prestadoresData, error: prestadoresError } = await supabase
         .from("prestadores")
-        .select(`
+        .select(
+          `
           id,
           usuario_id,
           users!inner (
@@ -186,13 +189,17 @@ export const BuscarServicios: React.FC = () => {
             calificacion_promedio,
             cantidad_calificaciones
           )
-        `)
+        `
+        )
         .not("users.calificacion_promedio", "is", null)
         .gt("users.calificacion_promedio", 0)
         .not("users.cantidad_calificaciones", "is", null)
         .gt("users.cantidad_calificaciones", 0);
 
-      console.log("📊 Prestadores con calificación encontrados:", prestadoresData?.length || 0);
+      console.log(
+        "📊 Prestadores con calificación encontrados:",
+        prestadoresData?.length || 0
+      );
 
       if (prestadoresError) {
         console.error("❌ Error al cargar top prestadores:", prestadoresError);
@@ -210,10 +217,15 @@ export const BuscarServicios: React.FC = () => {
       const prestadoresOrdenados = prestadoresData
         .sort((a: any, b: any) => {
           // Primero ordenar por calificación promedio (descendente)
-          const diffCalif = (b.users.calificacion_promedio || 0) - (a.users.calificacion_promedio || 0);
+          const diffCalif =
+            (b.users.calificacion_promedio || 0) -
+            (a.users.calificacion_promedio || 0);
           if (diffCalif !== 0) return diffCalif;
           // Si tienen la misma calificación, ordenar por cantidad (descendente)
-          return (b.users.cantidad_calificaciones || 0) - (a.users.cantidad_calificaciones || 0);
+          return (
+            (b.users.cantidad_calificaciones || 0) -
+            (a.users.cantidad_calificaciones || 0)
+          );
         })
         .slice(0, 5);
 
@@ -229,27 +241,46 @@ export const BuscarServicios: React.FC = () => {
       console.log("🔧 Servicios encontrados:", serviciosData?.length || 0);
 
       if (serviciosError) {
-        console.error("⚠️ Error al cargar servicios de prestadores:", serviciosError);
+        console.error(
+          "⚠️ Error al cargar servicios de prestadores:",
+          serviciosError
+        );
       }
 
       // Combinar datos
-      const topPrestadoresCompletos = prestadoresOrdenados.map((prestador: any) => {
-        const usuario = prestador.users;
-        const servicioInfo = serviciosData?.find((s: any) => s.prestador_id === prestador.id);
+      const topPrestadoresCompletos = prestadoresOrdenados.map(
+        (prestador: any) => {
+          const usuario = prestador.users;
+          const servicioInfo = serviciosData?.find(
+            (s: any) => s.prestador_id === prestador.id
+          );
 
-        return {
-          id: prestador.id,
-          usuario_id: prestador.usuario_id,
-          nombre: usuario?.nombre || "Sin nombre",
-          apellido: usuario?.apellido || "",
-          telefono: usuario?.telefono || "",
-          calificacion_promedio: usuario?.calificacion_promedio,
-          cantidad_calificaciones: usuario?.cantidad_calificaciones,
-          servicio_nombre: servicioInfo?.servicios?.nombre || "Varios servicios",
-          precio_base: servicioInfo?.precio_base || null,
-          foto_perfil_url: usuario?.foto_perfil_url || null,
-        };
-      });
+          // Extraer nombre del servicio manejando array u objeto
+          let servicioNombre = "Varios servicios";
+          if (servicioInfo?.servicios) {
+            if (Array.isArray(servicioInfo.servicios)) {
+              servicioNombre =
+                servicioInfo.servicios[0]?.nombre || "Varios servicios";
+            } else {
+              servicioNombre =
+                (servicioInfo.servicios as any)?.nombre || "Varios servicios";
+            }
+          }
+
+          return {
+            id: prestador.id,
+            usuario_id: prestador.usuario_id,
+            nombre: usuario?.nombre || "Sin nombre",
+            apellido: usuario?.apellido || "",
+            telefono: usuario?.telefono || "",
+            calificacion_promedio: usuario?.calificacion_promedio,
+            cantidad_calificaciones: usuario?.cantidad_calificaciones,
+            servicio_nombre: servicioNombre,
+            precio_base: servicioInfo?.precio_base || null,
+            foto_perfil_url: usuario?.foto_perfil_url || null,
+          };
+        }
+      );
 
       console.log("🎯 Top prestadores completos:", topPrestadoresCompletos);
       setTopPrestadores(topPrestadoresCompletos);
@@ -412,8 +443,11 @@ export const BuscarServicios: React.FC = () => {
   };
 
   const filteredServicios = servicios.filter((servicio) => {
-    const matchesSearch = servicio.nombre.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategoria = selectedCategoria === null || servicio.categoria_id === selectedCategoria;
+    const matchesSearch = servicio.nombre
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesCategoria =
+      selectedCategoria === null || servicio.categoria_id === selectedCategoria;
     return matchesSearch && matchesCategoria;
   });
 
@@ -494,10 +528,20 @@ export const BuscarServicios: React.FC = () => {
               onPress={() => setSelectedCategoria(null)}
               activeOpacity={0.7}
             >
-              <View style={[styles.categoriaIcon, selectedCategoria === null && styles.categoriaIconSelected]}>
+              <View
+                style={[
+                  styles.categoriaIcon,
+                  selectedCategoria === null && styles.categoriaIconSelected,
+                ]}
+              >
                 <Text style={styles.categoriaIconText}>📂</Text>
               </View>
-              <Text style={[styles.categoriaName, selectedCategoria === null && styles.categoriaNameSelected]}>
+              <Text
+                style={[
+                  styles.categoriaName,
+                  selectedCategoria === null && styles.categoriaNameSelected,
+                ]}
+              >
                 Todas
               </Text>
             </TouchableOpacity>
@@ -506,7 +550,8 @@ export const BuscarServicios: React.FC = () => {
                 key={categoria.id}
                 style={[
                   styles.categoriaCard,
-                  selectedCategoria === categoria.id && styles.categoriaCardSelected,
+                  selectedCategoria === categoria.id &&
+                    styles.categoriaCardSelected,
                 ]}
                 onPress={() => setSelectedCategoria(categoria.id)}
                 activeOpacity={0.7}
@@ -517,19 +562,27 @@ export const BuscarServicios: React.FC = () => {
                     style={[
                       styles.categoriaIcon,
                       styles.categoriaIconImage,
-                      selectedCategoria === categoria.id && styles.categoriaIconSelected,
+                      selectedCategoria === categoria.id &&
+                        styles.categoriaIconSelected,
                     ]}
                     resizeMode="cover"
                   />
                 ) : (
-                  <View style={[styles.categoriaIcon, selectedCategoria === categoria.id && styles.categoriaIconSelected]}>
+                  <View
+                    style={[
+                      styles.categoriaIcon,
+                      selectedCategoria === categoria.id &&
+                        styles.categoriaIconSelected,
+                    ]}
+                  >
                     <Text style={styles.categoriaIconText}>📦</Text>
                   </View>
                 )}
                 <Text
                   style={[
                     styles.categoriaName,
-                    selectedCategoria === categoria.id && styles.categoriaNameSelected,
+                    selectedCategoria === categoria.id &&
+                      styles.categoriaNameSelected,
                   ]}
                   numberOfLines={2}
                 >
@@ -574,72 +627,82 @@ export const BuscarServicios: React.FC = () => {
           </ScrollView>
 
           {/* Carrusel de Top Prestadores - Fijo en la parte inferior */}
-          {topPrestadores.length > 0 && selectedCategoria === null && searchQuery.trim() === "" && (
-            <View style={styles.carouselContainer}>
-              <Text style={styles.carouselTitle}>
-                🌟 Mejores Calificados
-              </Text>
-              {loadingTop ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.carousel}
-                  contentContainerStyle={styles.carouselContent}
-                >
-                  {topPrestadores.map((prestador, index) => (
-                    <TouchableOpacity
-                      key={prestador.id}
-                      style={[
-                        styles.carouselCard,
-                        index === 0 && styles.carouselCardFirst,
-                        index === topPrestadores.length - 1 && styles.carouselCardLast,
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      {/* Foto de perfil */}
-                      {prestador.foto_perfil_url ? (
-                        <Image
-                          source={{ uri: `${prestador.foto_perfil_url}?t=${Date.now()}` }}
-                          style={styles.carouselFoto}
-                        />
-                      ) : (
-                        <View style={[styles.carouselFoto, styles.carouselFotoPlaceholder]}>
-                          <Text style={styles.carouselFotoText}>
-                            {prestador.nombre.charAt(0)}
-                            {prestador.apellido.charAt(0)}
+          {topPrestadores.length > 0 &&
+            selectedCategoria === null &&
+            searchQuery.trim() === "" && (
+              <View style={styles.carouselContainer}>
+                <Text style={styles.carouselTitle}>🌟 Mejores Calificados</Text>
+                {loadingTop ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.carousel}
+                    contentContainerStyle={styles.carouselContent}
+                  >
+                    {topPrestadores.map((prestador, index) => (
+                      <TouchableOpacity
+                        key={prestador.id}
+                        style={[
+                          styles.carouselCard,
+                          index === 0 && styles.carouselCardFirst,
+                          index === topPrestadores.length - 1 &&
+                            styles.carouselCardLast,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        {/* Foto de perfil */}
+                        {prestador.foto_perfil_url ? (
+                          <Image
+                            source={{
+                              uri: `${
+                                prestador.foto_perfil_url
+                              }?t=${Date.now()}`,
+                            }}
+                            style={styles.carouselFoto}
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.carouselFoto,
+                              styles.carouselFotoPlaceholder,
+                            ]}
+                          >
+                            <Text style={styles.carouselFotoText}>
+                              {prestador.nombre.charAt(0)}
+                              {prestador.apellido.charAt(0)}
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Información */}
+                        <Text style={styles.carouselNombre} numberOfLines={1}>
+                          {prestador.nombre} {prestador.apellido}
+                        </Text>
+                        <Text style={styles.carouselServicio} numberOfLines={1}>
+                          {prestador.servicio_nombre}
+                        </Text>
+
+                        {/* Calificación */}
+                        <View style={styles.carouselRating}>
+                          <StarRating
+                            rating={prestador.calificacion_promedio || 0}
+                            size={12}
+                          />
+                          <Text style={styles.carouselRatingNumber}>
+                            {prestador.calificacion_promedio?.toFixed(1)}
                           </Text>
                         </View>
-                      )}
-
-                      {/* Información */}
-                      <Text style={styles.carouselNombre} numberOfLines={1}>
-                        {prestador.nombre} {prestador.apellido}
-                      </Text>
-                      <Text style={styles.carouselServicio} numberOfLines={1}>
-                        {prestador.servicio_nombre}
-                      </Text>
-                      
-                      {/* Calificación */}
-                      <View style={styles.carouselRating}>
-                        <StarRating
-                          rating={prestador.calificacion_promedio || 0}
-                          size={12}
-                        />
-                        <Text style={styles.carouselRatingNumber}>
-                          {prestador.calificacion_promedio?.toFixed(1)}
+                        <Text style={styles.carouselRatingCount}>
+                          ({prestador.cantidad_calificaciones} reseñas)
                         </Text>
-                      </View>
-                      <Text style={styles.carouselRatingCount}>
-                        ({prestador.cantidad_calificaciones} reseñas)
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-          )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            )}
         </>
       ) : (
         <View style={styles.prestadoresContainer}>

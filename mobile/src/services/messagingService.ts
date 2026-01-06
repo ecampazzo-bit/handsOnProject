@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from "./supabaseClient";
 
 export interface Conversacion {
   id: number;
@@ -28,7 +28,7 @@ export interface Mensaje {
   conversacion_id: number;
   remitente_id: string;
   contenido: string;
-  tipo: 'texto' | 'imagen' | 'archivo' | 'cotizacion' | 'sistema';
+  tipo: "texto" | "imagen" | "archivo" | "cotizacion" | "sistema";
   leido: boolean;
   fecha_lectura: string | null;
   created_at: string;
@@ -43,7 +43,7 @@ export interface Mensaje {
 export interface SendMessageParams {
   conversacionId: number;
   contenido: string;
-  tipo?: 'texto' | 'imagen' | 'archivo' | 'cotizacion' | 'sistema';
+  tipo?: "texto" | "imagen" | "archivo" | "cotizacion" | "sistema";
 }
 
 /**
@@ -53,23 +53,30 @@ export const getOrCreateConversation = async (
   participante1Id: string,
   participante2Id: string,
   solicitudId?: number
-): Promise<{ data: Conversacion | null; error: { message: string } | null }> => {
+): Promise<{
+  data: Conversacion | null;
+  error: { message: string } | null;
+}> => {
   try {
-    const { data: result, error } = await supabase.rpc('get_or_create_conversacion', {
-      p_participante_1_id: participante1Id,
-      p_participante_2_id: participante2Id,
-      p_solicitud_id: solicitudId || null,
-    });
+    const { data: result, error } = await supabase.rpc(
+      "get_or_create_conversacion",
+      {
+        p_participante_1_id: participante1Id,
+        p_participante_2_id: participante2Id,
+        p_solicitud_id: solicitudId || null,
+      }
+    );
 
     if (error) {
-      console.error('Error al obtener/crear conversación:', error);
+      console.error("Error al obtener/crear conversación:", error);
       return { data: null, error };
     }
 
     // Obtener datos completos de la conversación
     const { data: conversacion, error: fetchError } = await supabase
-      .from('conversaciones')
-      .select(`
+      .from("conversaciones")
+      .select(
+        `
         *,
         participante_1:users!conversaciones_participante_1_id_fkey(
           id,
@@ -84,8 +91,9 @@ export const getOrCreateConversation = async (
           foto_perfil_url
         ),
         ultimo_mensaje:mensajes(*)
-      `)
-      .eq('id', result.id)
+      `
+      )
+      .eq("id", result.id)
       .single();
 
     if (fetchError) {
@@ -97,7 +105,7 @@ export const getOrCreateConversation = async (
     return {
       data: null,
       error: {
-        message: error instanceof Error ? error.message : 'Error desconocido',
+        message: error instanceof Error ? error.message : "Error desconocido",
       },
     };
   }
@@ -111,18 +119,21 @@ export const getConversations = async (): Promise<{
   error: { message: string } | null;
 }> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
       return {
         data: null,
-        error: { message: 'Usuario no autenticado' },
+        error: { message: "Usuario no autenticado" },
       };
     }
 
     const { data, error } = await supabase
-      .from('conversaciones')
-      .select(`
+      .from("conversaciones")
+      .select(
+        `
         *,
         participante_1:users!conversaciones_participante_1_id_fkey(
           id,
@@ -137,12 +148,13 @@ export const getConversations = async (): Promise<{
           foto_perfil_url
         ),
         ultimo_mensaje:mensajes(*)
-      `)
+      `
+      )
       .or(`participante_1_id.eq.${user.id},participante_2_id.eq.${user.id}`)
-      .order('ultimo_mensaje_fecha', { ascending: false, nullsLast: true });
+      .order("ultimo_mensaje_fecha", { ascending: false, nullsFirst: false });
 
     if (error) {
-      console.error('Error al obtener conversaciones:', error);
+      console.error("Error al obtener conversaciones:", error);
       return { data: null, error };
     }
 
@@ -151,7 +163,7 @@ export const getConversations = async (): Promise<{
     return {
       data: null,
       error: {
-        message: error instanceof Error ? error.message : 'Error desconocido',
+        message: error instanceof Error ? error.message : "Error desconocido",
       },
     };
   }
@@ -164,31 +176,34 @@ export const sendMessage = async (
   params: SendMessageParams
 ): Promise<{ data: Mensaje | null; error: { message: string } | null }> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
       return {
         data: null,
-        error: { message: 'Usuario no autenticado' },
+        error: { message: "Usuario no autenticado" },
       };
     }
 
-    const { data: result, error } = await supabase.rpc('send_message', {
+    const { data: result, error } = await supabase.rpc("send_message", {
       p_conversacion_id: params.conversacionId,
       p_remitente_id: user.id,
       p_contenido: params.contenido,
-      p_tipo: params.tipo || 'texto',
+      p_tipo: params.tipo || "texto",
     });
 
     if (error) {
-      console.error('Error al enviar mensaje:', error);
+      console.error("Error al enviar mensaje:", error);
       return { data: null, error };
     }
 
     // Obtener datos completos del mensaje
     const { data: mensaje, error: fetchError } = await supabase
-      .from('mensajes')
-      .select(`
+      .from("mensajes")
+      .select(
+        `
         *,
         remitente:users!mensajes_remitente_id_fkey(
           id,
@@ -196,8 +211,9 @@ export const sendMessage = async (
           apellido,
           foto_perfil_url
         )
-      `)
-      .eq('id', result.id)
+      `
+      )
+      .eq("id", result.id)
       .single();
 
     if (fetchError) {
@@ -209,7 +225,7 @@ export const sendMessage = async (
     return {
       data: null,
       error: {
-        message: error instanceof Error ? error.message : 'Error desconocido',
+        message: error instanceof Error ? error.message : "Error desconocido",
       },
     };
   }
@@ -224,8 +240,9 @@ export const getMessages = async (
 ): Promise<{ data: Mensaje[] | null; error: { message: string } | null }> => {
   try {
     const { data, error } = await supabase
-      .from('mensajes')
-      .select(`
+      .from("mensajes")
+      .select(
+        `
         *,
         remitente:users!mensajes_remitente_id_fkey(
           id,
@@ -233,13 +250,14 @@ export const getMessages = async (
           apellido,
           foto_perfil_url
         )
-      `)
-      .eq('conversacion_id', conversacionId)
-      .order('created_at', { ascending: false })
+      `
+      )
+      .eq("conversacion_id", conversacionId)
+      .order("created_at", { ascending: false })
       .limit(limit);
 
     if (error) {
-      console.error('Error al obtener mensajes:', error);
+      console.error("Error al obtener mensajes:", error);
       return { data: null, error };
     }
 
@@ -249,7 +267,7 @@ export const getMessages = async (
     return {
       data: null,
       error: {
-        message: error instanceof Error ? error.message : 'Error desconocido',
+        message: error instanceof Error ? error.message : "Error desconocido",
       },
     };
   }
@@ -262,25 +280,27 @@ export const markMessagesAsRead = async (
   conversacionId: number
 ): Promise<{ error: { message: string } | null }> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
-      return { error: { message: 'Usuario no autenticado' } };
+      return { error: { message: "Usuario no autenticado" } };
     }
 
     // Marcar como leídos los mensajes que no son del usuario actual
     const { error } = await supabase
-      .from('mensajes')
+      .from("mensajes")
       .update({
         leido: true,
         fecha_lectura: new Date().toISOString(),
       })
-      .eq('conversacion_id', conversacionId)
-      .neq('remitente_id', user.id)
-      .eq('leido', false);
+      .eq("conversacion_id", conversacionId)
+      .neq("remitente_id", user.id)
+      .eq("leido", false);
 
     if (error) {
-      console.error('Error al marcar mensajes como leídos:', error);
+      console.error("Error al marcar mensajes como leídos:", error);
       return { error };
     }
 
@@ -288,7 +308,7 @@ export const markMessagesAsRead = async (
   } catch (error) {
     return {
       error: {
-        message: error instanceof Error ? error.message : 'Error desconocido',
+        message: error instanceof Error ? error.message : "Error desconocido",
       },
     };
   }
@@ -299,41 +319,42 @@ export const markMessagesAsRead = async (
  */
 export const getUnreadMessagesCount = async (): Promise<number> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
       return 0;
     }
 
     // Obtener conversaciones del usuario
     const { data: conversaciones } = await supabase
-      .from('conversaciones')
-      .select('id')
+      .from("conversaciones")
+      .select("id")
       .or(`participante_1_id.eq.${user.id},participante_2_id.eq.${user.id}`);
 
     if (!conversaciones || conversaciones.length === 0) {
       return 0;
     }
 
-    const conversacionIds = conversaciones.map(c => c.id);
+    const conversacionIds = conversaciones.map((c) => c.id);
 
     // Contar mensajes no leídos (excluyendo los del usuario)
     const { count, error } = await supabase
-      .from('mensajes')
-      .select('*', { count: 'exact', head: true })
-      .in('conversacion_id', conversacionIds)
-      .neq('remitente_id', user.id)
-      .eq('leido', false);
+      .from("mensajes")
+      .select("*", { count: "exact", head: true })
+      .in("conversacion_id", conversacionIds)
+      .neq("remitente_id", user.id)
+      .eq("leido", false);
 
     if (error) {
-      console.error('Error al contar mensajes no leídos:', error);
+      console.error("Error al contar mensajes no leídos:", error);
       return 0;
     }
 
     return count || 0;
   } catch (error) {
-    console.error('Error en getUnreadMessagesCount:', error);
+    console.error("Error en getUnreadMessagesCount:", error);
     return 0;
   }
 };
-
