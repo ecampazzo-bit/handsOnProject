@@ -680,12 +680,48 @@ export const getCurrentUser = async (): Promise<{
 }> => {
   try {
     // Verificar primero que haya una sesión activa
-    const {
+    let {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession();
 
+    // Si no hay sesión activa, intentar restaurar desde AsyncStorage
     if (sessionError || !session) {
+      console.log("No hay sesión activa, intentando restaurar desde AsyncStorage...");
+      
+      try {
+        const savedSession = await AsyncStorage.getItem(USER_SESSION_KEY);
+        if (savedSession) {
+          const parsedSession = JSON.parse(savedSession);
+          const {
+            data: { session: restoredSession },
+            error: restoreError,
+          } = await supabase.auth.setSession(parsedSession);
+
+          if (!restoreError && restoredSession) {
+            console.log("Sesión restaurada exitosamente en getCurrentUser");
+            session = restoredSession;
+            // Guardar la sesión restaurada
+            await AsyncStorage.setItem(
+              USER_SESSION_KEY,
+              JSON.stringify(restoredSession)
+            );
+          } else {
+            console.log("No se pudo restaurar la sesión:", restoreError);
+            // Limpiar sesión inválida
+            await AsyncStorage.removeItem(USER_SESSION_KEY);
+            return { user: null, error: { message: "No hay sesión activa" } };
+          }
+        } else {
+          return { user: null, error: { message: "No hay sesión activa" } };
+        }
+      } catch (restoreError) {
+        console.error("Error al restaurar sesión en getCurrentUser:", restoreError);
+        return { user: null, error: { message: "No hay sesión activa" } };
+      }
+    }
+
+    if (!session) {
       return { user: null, error: { message: "No hay sesión activa" } };
     }
 

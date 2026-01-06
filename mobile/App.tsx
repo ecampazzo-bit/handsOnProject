@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
-import { Platform, NativeModules, Alert } from "react-native";
+import { Platform, NativeModules, Alert, AppState, AppStateStatus } from "react-native";
 import { AuthNavigator } from "./src/navigation/AuthNavigator";
 import { colors } from "./src/constants/colors";
 import { supabase } from "./src/services/supabaseClient";
@@ -26,6 +26,97 @@ if (Platform.OS === "android") {
 }
 
 const USER_SESSION_KEY = "@handson_user_session";
+
+/**
+ * Restaura la sesión desde AsyncStorage cuando la app vuelve al foreground
+ */
+const restoreSession = async (): Promise<boolean> => {
+  try {
+    console.log("=== Restaurando sesión al volver al foreground ===");
+    
+    // Primero intentar obtener la sesión actual de Supabase
+    const {
+      data: { session: currentSession },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    // Si ya hay una sesión activa, verificar que sea válida
+    if (currentSession && currentSession.user) {
+      console.log("Sesión activa encontrada, verificando validez...");
+      
+      // Intentar refrescar el token para asegurar que la sesión sea válida
+      try {
+        const { data: { session: refreshedSession }, error: refreshError } = 
+          await supabase.auth.refreshSession();
+        
+        if (!refreshError && refreshedSession) {
+          console.log("Sesión refrescada exitosamente");
+          // Guardar la sesión refrescada
+          await AsyncStorage.setItem(
+            USER_SESSION_KEY,
+            JSON.stringify(refreshedSession)
+          );
+          return true;
+        }
+      } catch (refreshError) {
+        console.log("No se pudo refrescar la sesión, continuando con la actual");
+      }
+      
+      // Si la sesión actual es válida, guardarla y retornar
+      await AsyncStorage.setItem(
+        USER_SESSION_KEY,
+        JSON.stringify(currentSession)
+      );
+      return true;
+    }
+
+    // Si no hay sesión activa, intentar restaurar desde AsyncStorage
+    console.log("No hay sesión activa, intentando restaurar desde AsyncStorage...");
+    const savedSession = await AsyncStorage.getItem(USER_SESSION_KEY);
+    
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession);
+        console.log("Sesión encontrada en AsyncStorage, restaurando...");
+
+        const {
+          data: { session: restoredSession },
+          error: restoreError,
+        } = await supabase.auth.setSession(session);
+
+        if (!restoreError && restoredSession) {
+          console.log(
+            "Sesión restaurada exitosamente:",
+            restoredSession.user?.id
+          );
+          
+          // Guardar la sesión restaurada
+          await AsyncStorage.setItem(
+            USER_SESSION_KEY,
+            JSON.stringify(restoredSession)
+          );
+          return true;
+        } else {
+          console.log("Error al restaurar sesión:", restoreError);
+          // Si la sesión guardada es inválida, limpiarla
+          await AsyncStorage.removeItem(USER_SESSION_KEY);
+          return false;
+        }
+      } catch (parseError) {
+        console.error("Error al parsear sesión guardada:", parseError);
+        // Limpiar sesión corrupta
+        await AsyncStorage.removeItem(USER_SESSION_KEY);
+        return false;
+      }
+    } else {
+      console.log("No hay sesión guardada en AsyncStorage");
+      return false;
+    }
+  } catch (error) {
+    console.error("Error al restaurar sesión:", error);
+    return false;
+  }
+};
 
 /**
  * Configura el listener de Realtime para recibir notificaciones de Supabase
@@ -77,6 +168,7 @@ export default function App() {
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
   const realtimeChannel = useRef<any>(null);
+  const appState = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
     // Inicializar la sesión al cargar la app
@@ -190,20 +282,94 @@ export default function App() {
       console.log("Cambio de estado de autenticación:", event, session?.user?.id);
 
       if (event === "SIGNED_IN" && session?.user?.id) {
-        // Usuario inició sesión - configurar Realtime
+        // Usuario inició sesión - guardar sesión y configurar Realtime
+        try {
+          await AsyncStorage.setItem(
+            USER_SESSION_KEY,
+            JSON.stringify(session)
+          );
+          console.log("Sesión guardada después de SIGNED_IN");
+        } catch (error) {
+          console.error("Error al guardar sesión:", error);
+        }
+        
+        // Configurar Realtime
         if (realtimeChannel.current) {
           await supabase.removeChannel(realtimeChannel.current);
         }
         realtimeChannel.current = setupRealtimeNotifications(session.user.id);
         await initializeNotifications(session.user.id);
       } else if (event === "SIGNED_OUT") {
-        // Usuario cerró sesión - limpiar Realtime
+        // Usuario cerró sesión - limpiar Realtime y sesión guardada
+        try {
+          await AsyncStorage.removeItem(USER_SESSION_KEY);
+          console.log("Sesión eliminada después de SIGNED_OUT");
+        } catch (error) {
+          console.error("Error al eliminar sesión:", error);
+        }
+        
         if (realtimeChannel.current) {
           await supabase.removeChannel(realtimeChannel.current);
           realtimeChannel.current = null;
         }
+      } else if (event === "TOKEN_REFRESHED" && session?.user?.id) {
+        // Token refrescado - actualizar sesión guardada
+        try {
+          await AsyncStorage.setItem(
+            USER_SESSION_KEY,
+            JSON.stringify(session)
+          );
+          console.log("Sesión actualizada después de TOKEN_REFRESHED");
+        } catch (error) {
+          console.error("Error al actualizar sesión:", error);
+        }
       }
     });
+
+    // Listener para cuando la app vuelve al foreground
+    const appStateSubscription = AppState.addEventListener(
+      "change",
+      async (nextAppState: AppStateStatus) => {
+        console.log("AppState cambió:", {
+          previous: appState.current,
+          next: nextAppState,
+        });
+
+        // Si la app vuelve al foreground desde background o inactive
+        if (
+          appState.current.match(/inactive|background/) &&
+          nextAppState === "active"
+        ) {
+          console.log("App volvió al foreground, restaurando sesión...");
+          
+          // Restaurar sesión
+          const restored = await restoreSession();
+          
+          if (restored) {
+            // Verificar que la sesión restaurada tenga un usuario
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            
+            if (session?.user?.id) {
+              console.log("Sesión restaurada correctamente, usuario:", session.user.id);
+              
+              // Reconfigurar Realtime si no está configurado
+              if (!realtimeChannel.current) {
+                realtimeChannel.current = setupRealtimeNotifications(session.user.id);
+              }
+              
+              // Reinicializar notificaciones
+              await initializeNotifications(session.user.id);
+            }
+          } else {
+            console.log("No se pudo restaurar la sesión");
+          }
+        }
+
+        appState.current = nextAppState;
+      }
+    );
 
     // Limpiar listeners al desmontar
     return () => {
@@ -217,6 +383,7 @@ export default function App() {
         supabase.removeChannel(realtimeChannel.current);
       }
       authSubscription.unsubscribe();
+      appStateSubscription.remove();
     };
   }, []);
 
