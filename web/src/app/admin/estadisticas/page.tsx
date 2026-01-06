@@ -40,6 +40,7 @@ interface Prestador {
   categoria_id: number | null;
   categoria_nombre: string;
   todas_las_categorias_ids?: number[];
+  todas_las_categorias?: Array<{ id: number; nombre: string }>;
 }
 
 export default function EstadisticasDashboard() {
@@ -357,6 +358,10 @@ export default function EstadisticasDashboard() {
 
           const categoriaPrincipal = categorias[0] || null;
           const todasLasCategoriasIds = categorias.map((cat: any) => cat.id);
+          const todasLasCategorias = categorias.map((cat: any) => ({
+            id: cat.id,
+            nombre: cat.nombre
+          }));
 
           return {
             id: prestador.id,
@@ -367,6 +372,7 @@ export default function EstadisticasDashboard() {
             categoria_id: categoriaPrincipal?.id || null,
             categoria_nombre: categoriaPrincipal?.nombre || "Sin categoría",
             todas_las_categorias_ids: todasLasCategoriasIds, // Para filtrar correctamente
+            todas_las_categorias: todasLasCategorias, // Todas las categorías con nombres
           };
         })
       );
@@ -830,10 +836,23 @@ export default function EstadisticasDashboard() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {prestador.email}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
-                                {prestador.categoria_nombre}
-                              </span>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap gap-1">
+                                {prestador.todas_las_categorias && prestador.todas_las_categorias.length > 0 ? (
+                                  prestador.todas_las_categorias.map((categoria) => (
+                                    <span
+                                      key={categoria.id}
+                                      className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800"
+                                    >
+                                      {categoria.nombre}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
+                                    Sin categoría
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
