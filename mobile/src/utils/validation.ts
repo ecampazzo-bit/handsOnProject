@@ -72,8 +72,12 @@ export const registerStep3Schema = Yup.object().shape({
   direccion: Yup.string()
     .min(5, 'La dirección debe tener al menos 5 caracteres')
     .required('La dirección es requerida'),
-  latitud: Yup.number().nullable(),
-  longitud: Yup.number().nullable(),
+  latitud: Yup.number()
+    .required('La ubicación es requerida. Por favor, obtén tu ubicación.')
+    .typeError('La ubicación es requerida'),
+  longitud: Yup.number()
+    .required('La ubicación es requerida. Por favor, obtén tu ubicación.')
+    .typeError('La ubicación es requerida'),
 });
 
 export const formatArgentinePhone = (phone: string): string => {

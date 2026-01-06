@@ -115,6 +115,18 @@ export const RegisterScreen: React.FC = () => {
     },
   });
 
+  // Obtener ubicación automáticamente cuando se entra al paso 3
+  useEffect(() => {
+    if (step === 3) {
+      // Pequeño delay para asegurar que el formulario esté listo
+      const timer = setTimeout(() => {
+        handleGetLocation();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   const handleEditProfilePicture = () => {
     Alert.alert("Seleccionar Foto", "Elige una opción", [
       { text: "Cancelar", style: "cancel" },
@@ -250,22 +262,30 @@ export const RegisterScreen: React.FC = () => {
       if (status !== "granted") {
         Alert.alert(
           "Permisos de ubicación requeridos",
-          "ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona. Tu ubicación se utiliza únicamente para mejorar tu experiencia de búsqueda y no se comparte con terceros.\n\nPuedes activar este permiso más tarde en la configuración de tu dispositivo.",
+          "La ubicación es obligatoria para completar tu registro. ofiSi necesita acceso a tu ubicación para conectarte con prestadores de servicios cercanos a tu área y mostrarte promociones disponibles en tu zona.\n\nPor favor, activa el permiso de ubicación en la configuración de tu dispositivo para continuar.",
           [
-            { text: "Entendido", style: "default" }
+            { 
+              text: "Entendido", 
+              style: "default"
+            }
           ]
         );
+        setGettingLocation(false);
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({});
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
       step3Form.setValue("latitud", location.coords.latitude);
       step3Form.setValue("longitud", location.coords.longitude);
-      Alert.alert("Éxito", "Ubicación obtenida correctamente");
+      // No mostrar alerta de éxito, solo actualizar el formulario
+      // El usuario verá la información de ubicación debajo del botón
     } catch (error) {
+      console.error("Error al obtener ubicación:", error);
       Alert.alert(
         "Error al obtener ubicación",
-        "No se pudo obtener tu ubicación. Por favor, verifica que los servicios de ubicación estén activados en tu dispositivo."
+        "No se pudo obtener tu ubicación. Por favor, verifica que los servicios de ubicación estén activados en tu dispositivo e intenta nuevamente.\n\nLa ubicación es obligatoria para completar el registro."
       );
     } finally {
       setGettingLocation(false);
@@ -279,6 +299,15 @@ export const RegisterScreen: React.FC = () => {
         Alert.alert(
           "Términos y Condiciones",
           "Debes aceptar los Términos y Condiciones para continuar."
+        );
+        return;
+      }
+
+      // Validar que la ubicación esté presente
+      if (!data.latitud || !data.longitud) {
+        Alert.alert(
+          "Ubicación requerida",
+          "Debes obtener tu ubicación para continuar con el registro. Por favor, presiona el botón 'Obtener Ubicación'."
         );
         return;
       }
@@ -384,13 +413,23 @@ export const RegisterScreen: React.FC = () => {
         return;
       }
 
+      // Validar que la ubicación esté presente
+      if (!data.latitud || !data.longitud) {
+        Alert.alert(
+          "Ubicación requerida",
+          "La ubicación es obligatoria para completar el registro. Por favor, vuelve al paso anterior y obtén tu ubicación."
+        );
+        setLoading(false);
+        return;
+      }
+
       const userDataToSend = {
         nombre: (data.nombre || "").trim(),
         apellido: (data.apellido || "").trim(),
         telefono: formattedPhone.trim(),
         direccion: data.direccion ? data.direccion.trim() : undefined,
-        latitud: data.latitud || undefined,
-        longitud: data.longitud || undefined,
+        latitud: data.latitud,
+        longitud: data.longitud,
         tipoUsuario: data.tipoUsuario,
       };
 
@@ -775,7 +814,7 @@ export const RegisterScreen: React.FC = () => {
     <View>
       <Text style={styles.stepTitle}>Información de Ubicación</Text>
       <Text style={styles.stepDescription}>
-        Necesitamos tu ubicación para mostrar servicios cercanos
+        La ubicación es obligatoria para registrarte. Necesitamos tu ubicación para conectarte con prestadores de servicios cercanos y mostrarte promociones disponibles en tu zona.
       </Text>
 
       <Controller
@@ -797,7 +836,9 @@ export const RegisterScreen: React.FC = () => {
         title={
           gettingLocation
             ? "Obteniendo ubicación..."
-            : "Obtener ubicación actual (GPS)"
+            : step3Form.watch("latitud") && step3Form.watch("longitud")
+            ? "Actualizar ubicación (GPS)"
+            : "Obtener ubicación actual (GPS) *Obligatorio"
         }
         onPress={handleGetLocation}
         variant="secondary"
@@ -864,6 +905,12 @@ export const RegisterScreen: React.FC = () => {
           }
           onPress={step3Form.handleSubmit(handleStep3Next)}
           loading={loading}
+          disabled={
+            !step3Form.watch("latitud") || 
+            !step3Form.watch("longitud") || 
+            !aceptaTerminos ||
+            loading
+          }
           style={styles.nextButton}
         />
       </View>
@@ -1039,10 +1086,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backButton: {
-    flex: 1,
+    width: 80,
+    minWidth: 80,
   },
   nextButton: {
-    flex: 2,
+    flex: 1,
   },
   profilePhotoSection: {
     alignItems: "center",
