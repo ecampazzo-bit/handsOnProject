@@ -213,7 +213,7 @@ export const BuscarServicios: React.FC = () => {
         return;
       }
 
-      // Ordenar por calificación en JavaScript y tomar los top 5
+      // Ordenar por calificación en JavaScript y tomar los top 10
       const prestadoresOrdenados = prestadoresData
         .sort((a: any, b: any) => {
           // Primero ordenar por calificación promedio (descendente)
@@ -227,9 +227,9 @@ export const BuscarServicios: React.FC = () => {
             (a.users.cantidad_calificaciones || 0)
           );
         })
-        .slice(0, 5);
+        .slice(0, 10);
 
-      console.log("✅ Top 5 prestadores ordenados:", prestadoresOrdenados);
+      console.log("✅ Top 10 prestadores ordenados:", prestadoresOrdenados);
 
       // Obtener un servicio principal para cada prestador
       const prestadorIds = prestadoresOrdenados.map((p: any) => p.id);
