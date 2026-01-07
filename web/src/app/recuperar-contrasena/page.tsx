@@ -28,9 +28,6 @@ export default function RecuperarContrasena() {
 
       const redirectUrl = `${siteUrl}/resetear-contrasena`;
 
-      console.log("Enviando email de recuperación a:", email);
-      console.log("URL de redirección:", redirectUrl);
-
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email,
         {
@@ -39,7 +36,6 @@ export default function RecuperarContrasena() {
       );
 
       if (resetError) {
-        console.error("Error de Supabase al enviar email:", resetError);
         throw resetError;
       }
 

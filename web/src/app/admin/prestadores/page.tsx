@@ -94,7 +94,6 @@ export default function PrestadoresDashboard() {
         .eq('users.activo', true)
 
       if (prestadoresError) {
-        console.error('Error al cargar prestadores:', prestadoresError)
         return
       }
 
@@ -161,7 +160,6 @@ export default function PrestadoresDashboard() {
 
       setPrestadores(prestadoresConCategoria)
     } catch (error: any) {
-      console.error('Error al cargar prestadores:', error)
       alert(`Error al cargar prestadores: ${error?.message || 'Error desconocido'}`)
     } finally {
       setLoading(false)

@@ -48,7 +48,6 @@ export default function PresupuestosResumen() {
         setCategorias(categoriasData)
       }
     } catch (error) {
-      console.error('Error al cargar categorías:', error)
     }
   }
 
@@ -123,7 +122,6 @@ export default function PresupuestosResumen() {
 
       setDatosGrafico(datos)
     } catch (error: any) {
-      console.error('Error al cargar presupuestos:', error)
       alert(`Error al cargar presupuestos: ${error?.message || 'Error desconocido'}`)
     } finally {
       setLoading(false)

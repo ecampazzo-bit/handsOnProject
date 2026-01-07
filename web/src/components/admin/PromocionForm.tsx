@@ -94,13 +94,10 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
       if (error) throw error
       setServicios(data || [])
     } catch (error) {
-      console.error('Error loading servicios:', error)
     }
   }
 
   const handleImageUpload = async (file: File, isMobile: boolean = false) => {
-    console.log('handleImageUpload llamado:', { file, isMobile, fileName: file.name, fileSize: file.size, fileType: file.type })
-    
     try {
       if (isMobile) {
         setUploadingMobileImage(true)
@@ -138,28 +135,16 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
       const tempId = promocion?.id || `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`
       const filePath = `${tempId}/${isMobile ? 'mobile_' : ''}${fileName}`
 
-      console.log('Subiendo imagen a:', filePath)
-
       // Intentar listar buckets para verificar (opcional, no bloqueante)
       try {
         const { data: buckets, error: bucketError } = await supabaseAdmin.storage.listBuckets()
         if (!bucketError && buckets) {
-          console.log('Buckets disponibles:', buckets.map(b => b.name))
           const bucketExists = buckets.some(b => b.name === 'promociones')
-          if (bucketExists) {
-            console.log('Bucket "promociones" confirmado como existente')
-          } else {
-            console.warn('Bucket "promociones" no encontrado en la lista, pero intentando subir de todas formas')
-          }
-        } else {
-          console.warn('No se pudo listar buckets, pero intentando subir de todas formas:', bucketError)
         }
       } catch (listError) {
-        console.warn('Error al listar buckets (continuando):', listError)
       }
 
       // Subir archivo a Storage
-      console.log('Iniciando upload con:', { filePath, fileType: file.type, fileSize: file.size })
       const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
         .from('promociones')
         .upload(filePath, file, {
@@ -169,9 +154,6 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
         })
 
       if (uploadError) {
-        console.error('Error de upload completo:', uploadError)
-        console.error('Detalles del error:', JSON.stringify(uploadError, null, 2))
-        
         // Mensaje de error más descriptivo
         let errorMessage = uploadError.message || 'Error desconocido'
         
@@ -189,17 +171,12 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
         throw new Error(errorMessage)
       }
 
-      console.log('Imagen subida exitosamente:', uploadData)
-
       // Obtener URL pública
       const { data: { publicUrl } } = supabaseAdmin.storage
         .from('promociones')
         .getPublicUrl(filePath)
 
-      console.log('URL pública generada:', publicUrl)
-
       // Actualizar estado
-      console.log('Actualizando estado con URL:', publicUrl)
       if (isMobile) {
         setFormData((prev) => ({ ...prev, imagen_mobile_url: publicUrl }))
         setMobileImagePreview(publicUrl)
@@ -211,10 +188,7 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
         setUploadingImage(false)
         setImageInputKey((prev) => prev + 1) // Reset input
       }
-      console.log('Estado actualizado exitosamente')
     } catch (error: any) {
-      console.error('Error uploading image completo:', error)
-      console.error('Stack trace:', error.stack)
       const errorMessage = error?.message || 'Error desconocido al subir imagen'
       alert(`Error al subir imagen: ${errorMessage}`)
       if (isMobile) {
@@ -379,7 +353,6 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
 
       onSuccess()
     } catch (error: any) {
-      console.error('Error saving promocion:', error)
       alert(`Error al guardar promoción: ${error.message || 'Error desconocido'}`)
     } finally {
       setLoading(false)
@@ -458,11 +431,8 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
                   accept="image/jpeg,image/png,image/webp"
                   onChange={(e) => {
                     const file = e.target.files?.[0]
-                    console.log('Archivo seleccionado:', file)
                     if (file) {
                       handleImageUpload(file, false)
-                    } else {
-                      console.warn('No se seleccionó ningún archivo')
                     }
                   }}
                   disabled={uploadingImage}
@@ -493,11 +463,8 @@ export default function PromocionForm({ promocion, categorias, onClose, onSucces
                   accept="image/jpeg,image/png,image/webp"
                   onChange={(e) => {
                     const file = e.target.files?.[0]
-                    console.log('Archivo mobile seleccionado:', file)
                     if (file) {
                       handleImageUpload(file, true)
-                    } else {
-                      console.warn('No se seleccionó ningún archivo mobile')
                     }
                   }}
                   disabled={uploadingMobileImage}

@@ -42,8 +42,6 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
       
-      console.log('=== Cargando usuarios ===')
-      
       // Intentar primero con la función que hace bypass de RLS
       let usersData = null;
       let usersError = null;
@@ -54,9 +52,7 @@ export default function AdminDashboard() {
         
         if (!functionError && functionData) {
           usersData = functionData;
-          console.log('Usuarios obtenidos mediante función RPC:', usersData.length);
         } else {
-          console.warn('Error al usar función RPC, intentando consulta directa:', functionError);
           // Fallback a consulta directa
           const { data: directData, error: directError } = await supabaseAdmin
             .from('users')
@@ -77,19 +73,14 @@ export default function AdminDashboard() {
           usersError = directError;
         }
       } catch (err: any) {
-        console.error('Error en carga de usuarios:', err);
         usersError = err;
       }
 
-      console.log('Resultado de consulta users:', { usersData, usersError })
-
       if (usersError) {
-        console.error('Error al obtener usuarios:', usersError)
         throw usersError
       }
 
       if (!usersData || usersData.length === 0) {
-        console.warn('No se encontraron usuarios en la base de datos')
         setUsers([])
         setStats({ total: 0, activos: 0, inactivos: 0, prestadores: 0, clientes: 0 })
         return
@@ -101,7 +92,6 @@ export default function AdminDashboard() {
         .select('id, usuario_id')
 
       if (prestadoresError) {
-        console.warn('Error al obtener prestadores (continuando):', prestadoresError)
       }
 
       const prestadoresMap = new Map(
@@ -112,8 +102,6 @@ export default function AdminDashboard() {
         ...user,
         prestador_id: prestadoresMap.get(user.id),
       }))
-
-      console.log('Usuarios procesados:', usersWithPrestador.length)
 
       setUsers(usersWithPrestador as User[])
 
@@ -129,15 +117,7 @@ export default function AdminDashboard() {
       ).length
 
       setStats({ total, activos, inactivos, prestadores, clientes })
-      console.log('Estadísticas calculadas:', { total, activos, inactivos, prestadores, clientes })
     } catch (error: any) {
-      console.error('Error completo al cargar usuarios:', error)
-      console.error('Detalles del error:', {
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint,
-      })
       alert(`Error al cargar usuarios: ${error?.message || 'Error desconocido'}`)
       setUsers([])
       setStats({ total: 0, activos: 0, inactivos: 0, prestadores: 0, clientes: 0 })
@@ -149,10 +129,6 @@ export default function AdminDashboard() {
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
       const newStatus = !currentStatus
-      console.log('=== Actualizando estado de usuario ===')
-      console.log('User ID:', userId)
-      console.log('Estado actual:', currentStatus)
-      console.log('Nuevo estado:', newStatus)
 
       // Intentar primero con la función RPC (más confiable)
       let updateSuccess = false
@@ -165,17 +141,12 @@ export default function AdminDashboard() {
             p_activo: newStatus
           })
 
-        console.log('Resultado de RPC update_user_status:', { rpcData, rpcError })
-
         if (!rpcError && rpcData && rpcData.success) {
           updateSuccess = true
-          console.log('Actualización exitosa mediante RPC:', rpcData)
         } else {
           updateError = rpcError
-          console.warn('Error en RPC, intentando método alternativo:', rpcError)
         }
       } catch (rpcErr: any) {
-        console.warn('Error al llamar RPC, intentando método alternativo:', rpcErr)
         updateError = rpcErr
       }
 
@@ -187,34 +158,25 @@ export default function AdminDashboard() {
           .eq('id', userId)
           .select()
 
-        console.log('Resultado de actualización directa:', { data, error })
-
         if (error) {
-          console.error('Error al actualizar:', error)
           throw error
         }
 
         if (!data || data.length === 0) {
-          console.warn('No se recibió confirmación de la actualización')
           throw new Error('No se pudo actualizar el usuario')
         }
 
         const updatedUser = data[0]
-        console.log('Usuario actualizado:', updatedUser)
 
         // Verificar que el estado se haya guardado correctamente
         if (updatedUser.activo !== newStatus) {
-          console.error('El estado no se guardó correctamente. Esperado:', newStatus, 'Obtenido:', updatedUser.activo)
           throw new Error('El estado no se guardó correctamente')
         }
       }
 
       // Recargar usuarios desde la base de datos para asegurar que tenemos el estado real
       await loadUsers()
-
-      console.log('Estado actualizado exitosamente')
     } catch (error: any) {
-      console.error('Error updating user status:', error)
       alert(`Error al actualizar el estado del usuario: ${error?.message || 'Error desconocido'}`)
       // Recargar usuarios para mostrar el estado real
       await loadUsers()

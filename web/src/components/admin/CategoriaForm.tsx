@@ -28,8 +28,6 @@ export default function CategoriaForm({ categoria, onClose, onSuccess }: Props) 
   const [imagePreview, setImagePreview] = useState<string | null>(categoria?.url || null)
 
   const handleImageUpload = async (file: File) => {
-    console.log('handleImageUpload llamado:', { file, fileName: file.name, fileSize: file.size, fileType: file.type })
-    
     try {
       setUploadingImage(true)
 
@@ -63,24 +61,13 @@ export default function CategoriaForm({ categoria, onClose, onSuccess }: Props) 
       const tempId = categoria?.id || `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`
       const filePath = `${tempId}/${fileName}`
 
-      console.log('Subiendo imagen a:', filePath)
-
       // Intentar listar buckets para verificar (opcional, no bloqueante)
       try {
         const { data: buckets, error: bucketError } = await supabaseAdmin.storage.listBuckets()
         if (!bucketError && buckets) {
-          console.log('Buckets disponibles:', buckets.map(b => b.name))
           const bucketExists = buckets.some(b => b.name === 'categorias')
-          if (bucketExists) {
-            console.log('Bucket "categorias" confirmado como existente')
-          } else {
-            console.warn('Bucket "categorias" no encontrado en la lista, pero intentando subir de todas formas')
-          }
-        } else {
-          console.warn('No se pudo listar buckets, pero intentando subir de todas formas:', bucketError)
         }
       } catch (listError) {
-        console.warn('Error al listar buckets (continuando):', listError)
       }
 
       const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
@@ -92,7 +79,6 @@ export default function CategoriaForm({ categoria, onClose, onSuccess }: Props) 
         })
 
       if (uploadError) {
-        console.error('Error de upload de Supabase:', uploadError)
         if (uploadError.message?.includes('Bucket not found')) {
           throw new Error(
             'El bucket "categorias" no existe. Por favor créalo primero ejecutando: scripts/crear_bucket_categorias.sql'
@@ -101,20 +87,15 @@ export default function CategoriaForm({ categoria, onClose, onSuccess }: Props) 
         throw uploadError
       }
 
-      console.log('Upload exitoso:', uploadData)
-
       // Obtener URL pública
       const { data: { publicUrl } } = supabaseAdmin.storage
         .from('categorias')
         .getPublicUrl(filePath)
 
-      console.log('URL pública obtenida:', publicUrl)
-
       setFormData({ ...formData, url: publicUrl })
       setImagePreview(publicUrl)
       setImageInputKey(prev => prev + 1)
     } catch (error: any) {
-      console.error('Error completo en handleImageUpload:', error)
       alert(`Error al subir imagen: ${error.message || 'Error desconocido'}`)
     } finally {
       setUploadingImage(false)
@@ -204,7 +185,6 @@ export default function CategoriaForm({ categoria, onClose, onSuccess }: Props) 
 
       onSuccess()
     } catch (error: any) {
-      console.error('Error saving categoria:', error)
       alert(`Error al guardar categoría: ${error.message || 'Error desconocido'}`)
     } finally {
       setLoading(false)

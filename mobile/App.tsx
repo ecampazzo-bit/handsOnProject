@@ -203,8 +203,8 @@ export default function App() {
                   restoredSession.user?.id
                 );
                 
-                // Inicializar notificaciones después de restaurar sesión
-                await initializeNotifications(restoredSession.user?.id);
+                // Inicializar notificaciones después de restaurar sesión (sin solicitar permisos automáticamente)
+                await initializeNotifications(restoredSession.user?.id, false);
               }
             } catch (parseError) {
               console.error("Error al restaurar sesión:", parseError);
@@ -213,14 +213,14 @@ export default function App() {
         } else if (session) {
           console.log("Sesión activa encontrada:", session.user?.id);
           
-          // Inicializar notificaciones si hay sesión
-          await initializeNotifications(session.user?.id);
+          // Inicializar notificaciones si hay sesión (sin solicitar permisos automáticamente)
+          await initializeNotifications(session.user?.id, false);
           
           // Configurar listener de Realtime para notificaciones
           setupRealtimeNotifications(session.user.id);
         } else {
-          // Inicializar notificaciones incluso sin sesión (para solicitar permisos)
-          await initializeNotifications();
+          // Inicializar notificaciones incluso sin sesión (sin solicitar permisos automáticamente)
+          await initializeNotifications(undefined, false);
         }
       } catch (error) {
         console.error("Error en inicializeSession:", error);
@@ -298,7 +298,7 @@ export default function App() {
           await supabase.removeChannel(realtimeChannel.current);
         }
         realtimeChannel.current = setupRealtimeNotifications(session.user.id);
-        await initializeNotifications(session.user.id);
+        await initializeNotifications(session.user.id, false);
       } else if (event === "SIGNED_OUT") {
         // Usuario cerró sesión - limpiar Realtime y sesión guardada
         try {
@@ -359,8 +359,8 @@ export default function App() {
                 realtimeChannel.current = setupRealtimeNotifications(session.user.id);
               }
               
-              // Reinicializar notificaciones
-              await initializeNotifications(session.user.id);
+              // Reinicializar notificaciones (sin solicitar permisos automáticamente)
+              await initializeNotifications(session.user.id, false);
             }
           } else {
             console.log("No se pudo restaurar la sesión");

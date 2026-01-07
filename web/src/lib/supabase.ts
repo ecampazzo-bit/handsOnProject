@@ -35,12 +35,15 @@ export const supabase = ((): SupabaseClient => {
 // Las operaciones administrativas dependen de las políticas RLS y el rol del usuario
 export const supabaseAdmin = ((): SupabaseClient => {
   if (!supabaseAdminInstance) {
-    // En el navegador, usar el mismo cliente con autenticación
-    // Las políticas RLS permitirán las operaciones según el rol del usuario
+    // Usamos el mismo storageKey que el cliente principal para que compartan la sesión JWT
+    // Si no lo hacemos, este cliente quedaría como "anon" y RLS bloquearía acciones de admin
     supabaseAdminInstance = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
+        storage:
+          typeof window !== "undefined" ? window.localStorage : undefined,
+        storageKey: "sb-auth-token",
       },
     });
   }

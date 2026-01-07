@@ -50,7 +50,6 @@ export default function TrabajosResumen() {
         setCategorias(categoriasData)
       }
     } catch (error) {
-      console.error('Error al cargar categorías:', error)
     }
   }
 
@@ -127,7 +126,6 @@ export default function TrabajosResumen() {
 
       setDatosGrafico(datos)
     } catch (error: any) {
-      console.error('Error al cargar trabajos:', error)
       alert(`Error al cargar trabajos: ${error?.message || 'Error desconocido'}`)
     } finally {
       setLoading(false)

@@ -115,7 +115,6 @@ export default function EstadisticasDashboard() {
           });
         }
       } catch (error) {
-        console.error("Error al recalcular prestadores por categoría:", error);
       }
     };
 
@@ -271,7 +270,6 @@ export default function EstadisticasDashboard() {
         setPrestadores([]);
       }
     } catch (error: any) {
-      console.error("Error al cargar estadísticas:", error);
       alert(
         `Error al cargar estadísticas: ${error?.message || "Error desconocido"}`
       );
@@ -289,7 +287,6 @@ export default function EstadisticasDashboard() {
         await supabaseAdmin.from("prestadores").select("id, usuario_id");
 
       if (allPrestadoresError) {
-        console.error("Error al obtener prestadores:", allPrestadoresError);
         return;
       }
 
@@ -447,7 +444,6 @@ export default function EstadisticasDashboard() {
 
       setPrestadores(prestadoresFiltrados);
     } catch (error: any) {
-      console.error("Error al cargar prestadores:", error);
     } finally {
       setLoadingPrestadores(false);
     }

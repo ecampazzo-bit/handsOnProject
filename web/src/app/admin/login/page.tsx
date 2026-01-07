@@ -36,7 +36,6 @@ export default function AdminLogin() {
           .single();
 
         if (userError) {
-          console.error("Error al verificar usuario:", userError);
           await supabase.auth.signOut();
           setError("Error al verificar el estado del usuario");
           setLoading(false);
@@ -61,15 +60,6 @@ export default function AdminLogin() {
           userEmail.includes("@admin.") || 
           userEmail === "admin@ofisi.ar" ||
           userEmail === "admin@ofisi.com"; // Mantener compatibilidad temporal
-
-        console.log("=== DEBUG ADMIN LOGIN ===");
-        console.log("Input email:", inputEmail);
-        console.log("Auth email:", authEmail);
-        console.log("User email usado:", userEmail);
-        console.log("Es admin?", isAdmin);
-        console.log("User ID:", data.user.id);
-        console.log("Usuario activo:", userData?.activo);
-        console.log("========================");
 
         if (!isAdmin) {
           await supabase.auth.signOut();

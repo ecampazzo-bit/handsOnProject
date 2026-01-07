@@ -71,7 +71,6 @@ export default function CategoriasPage() {
 
       setCategorias(categoriasWithCount);
     } catch (error) {
-      console.error("Error loading categorias:", error);
       alert("Error al cargar categorías");
     } finally {
       setLoading(false);
@@ -90,7 +89,6 @@ export default function CategoriasPage() {
       if (error) throw error;
       setServicios(data || []);
     } catch (error) {
-      console.error("Error loading servicios:", error);
       alert("Error al cargar servicios");
     } finally {
       setLoadingServicios(false);
@@ -122,7 +120,6 @@ export default function CategoriasPage() {
       if (error) throw error;
       loadCategorias();
     } catch (error) {
-      console.error("Error deleting categoria:", error);
       alert("Error al eliminar la categoría");
     }
   };
@@ -139,21 +136,73 @@ export default function CategoriasPage() {
       return;
     }
 
-    try {
-      const { error } = await supabaseAdmin
-        .from("servicios")
-        .insert({
-          nombre: newServicioNombre.trim(),
-          categoria_id: selectedCategoria.id,
-        });
+    // Validar que la categoría tenga un ID válido
+    if (!selectedCategoria.id) {
+      alert("Error: La categoría seleccionada no tiene un ID válido");
+      return;
+    }
 
-      if (error) throw error;
+    try {
+      // Verificar que la categoría existe antes de insertar
+      const { data: categoriaData, error: categoriaError } = await supabaseAdmin
+        .from("categorias")
+        .select("id")
+        .eq("id", selectedCategoria.id)
+        .single();
+
+      if (categoriaError || !categoriaData) {
+        console.error("Error al verificar categoría:", categoriaError);
+        alert(`Error: La categoría seleccionada no existe o no se pudo verificar. Por favor, recarga la página.`);
+        return;
+      }
+
+      const servicioData = {
+        nombre: newServicioNombre.trim(),
+        categoria_id: selectedCategoria.id,
+      };
+
+      console.log("Intentando agregar servicio:", servicioData);
+
+      const { data, error } = await supabaseAdmin
+        .from("servicios")
+        .insert(servicioData)
+        .select();
+
+      if (error) {
+        console.error("Error de Supabase al agregar servicio:", error);
+        console.error("Detalles del error:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
+        
+        // Mostrar el mensaje de error real con más detalles
+        let errorMsg = `Error al agregar el servicio: ${error.message || error.code || "Error desconocido"}`;
+        if (error.hint) {
+          errorMsg += `\n\nSugerencia: ${error.hint}`;
+        }
+        if (error.code === "23503") {
+          errorMsg += "\n\nLa categoría seleccionada no existe o fue eliminada.";
+        } else if (error.code === "42501") {
+          errorMsg += "\n\nNo tienes permisos para realizar esta acción. Verifica que estés autenticado como administrador.";
+          // Solo redirigir si es un error de permisos explícito
+          setTimeout(() => {
+            router.push("/admin/login");
+          }, 2000);
+        }
+        alert(errorMsg);
+        return;
+      }
+
+      console.log("Servicio agregado exitosamente:", data);
       setNewServicioNombre("");
       await loadServicios(selectedCategoria.id);
       await loadCategorias(); // Actualizar contador
-    } catch (error) {
-      console.error("Error adding servicio:", error);
-      alert("Error al agregar el servicio");
+    } catch (error: any) {
+      console.error("Error inesperado al agregar servicio:", error);
+      const errorMessage = error?.message || error?.toString() || "Error desconocido";
+      alert(`Error al agregar el servicio: ${errorMessage}`);
     }
   };
 
@@ -174,7 +223,6 @@ export default function CategoriasPage() {
         await loadCategorias(); // Actualizar contador
       }
     } catch (error) {
-      console.error("Error deleting servicio:", error);
       alert("Error al eliminar el servicio");
     }
   };

@@ -40,31 +40,18 @@ function ResetearContrasenaContent() {
           token = searchParams.get("token") || token;
         }
 
-        console.log("Validando token de recuperación:", { 
-          hasHash: !!hash,
-          hash: hash.substring(0, 100),
-          searchParams: window.location.search,
-          type, 
-          hasAccessToken: !!accessToken,
-          hasToken: !!token
-        });
-
         // Si hay un token en query params pero no en hash, Supabase lo procesará automáticamente
         // Esto pasa cuando Supabase redirige desde /auth/v1/verify
         // El token en query params será procesado por Supabase cuando detectSessionInUrl está habilitado
         if (token && type === "recovery" && !hash.includes("access_token")) {
-          console.log("📧 Token encontrado en query params, Supabase lo procesará automáticamente");
-          console.log("⚠️ Esperando a que Supabase procese el token (puede tardar unos segundos)...");
           // Continuar con el flujo normal, Supabase procesará el token automáticamente
         } else if (!accessToken && !token) {
-          console.warn("❌ No se encontró token de recuperación en hash ni query params");
           setError(
             "Enlace inválido o expirado. Por favor, solicita un nuevo enlace de recuperación."
           );
           setValidating(false);
           return;
         } else if (type !== "recovery") {
-          console.warn("❌ Tipo de token incorrecto:", type);
           setError(
             "Enlace inválido o expirado. Por favor, solicita un nuevo enlace de recuperación."
           );
@@ -77,27 +64,21 @@ function ResetearContrasenaContent() {
         const {
           data: { subscription: authSubscription },
         } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log("🔐 Auth state change:", { event, hasSession: !!session, userId: session?.user?.id });
-
           if (event === "PASSWORD_RECOVERY") {
-            console.log("✅ Evento PASSWORD_RECOVERY detectado");
             // Verificar la sesión después del evento
             const { data: { session: recoverySession } } = await supabase.auth.getSession();
             if (recoverySession) {
-              console.log("✅ Sesión de recuperación establecida correctamente");
               setValidating(false);
               if (subscription) {
                 subscription.unsubscribe();
               }
             }
           } else if (event === "SIGNED_IN" && session) {
-            console.log("✅ Usuario autenticado con sesión de recuperación");
             setValidating(false);
             if (subscription) {
               subscription.unsubscribe();
             }
           } else if (event === "TOKEN_REFRESHED" && session) {
-            console.log("✅ Token refrescado, sesión válida");
             setValidating(false);
             if (subscription) {
               subscription.unsubscribe();
@@ -110,7 +91,6 @@ function ResetearContrasenaContent() {
         // Verificar la sesión inmediatamente (puede que ya esté procesada)
         const initialCheck = await supabase.auth.getSession();
         if (initialCheck.data.session) {
-          console.log("✅ Sesión ya disponible en carga inicial");
           setValidating(false);
           if (subscription) {
             subscription.unsubscribe();
@@ -128,17 +108,7 @@ function ResetearContrasenaContent() {
             error: sessionError,
           } = await supabase.auth.getSession();
 
-          console.log(`Intento ${attempts + 1}/${maxAttempts}:`, { 
-            hasSession: !!session, 
-            sessionError: sessionError?.message,
-            userId: session?.user?.id,
-            email: session?.user?.email,
-            hash: window.location.hash.substring(0, 50),
-            search: window.location.search
-          });
-
           if (session) {
-            console.log("✅ Sesión de recuperación encontrada");
             setValidating(false);
             if (subscription) {
               subscription.unsubscribe();
@@ -150,14 +120,6 @@ function ResetearContrasenaContent() {
           if (attempts < maxAttempts) {
             timeoutId = setTimeout(checkSessionPeriodically, 500);
           } else {
-            console.error("❌ No se pudo establecer sesión después de múltiples intentos");
-            console.error("Estado final:", {
-              hash: window.location.hash,
-              search: window.location.search,
-              url: window.location.href,
-              hasToken: !!token,
-              hasAccessToken: !!accessToken
-            });
             setError(
               "No se pudo validar el enlace. Por favor, solicita un nuevo enlace de recuperación."
             );
@@ -176,7 +138,6 @@ function ResetearContrasenaContent() {
 
         // Timeout de seguridad (30 segundos)
         const safetyTimeout = setTimeout(() => {
-          console.warn("⏱️ Timeout de validación alcanzado");
           if (subscription) {
             subscription.unsubscribe();
           }
@@ -190,7 +151,6 @@ function ResetearContrasenaContent() {
         timeoutId = safetyTimeout;
 
       } catch (err: any) {
-        console.error("❌ Error al validar sesión:", err);
         setError(
           "Error al validar el enlace de recuperación. Por favor, intenta nuevamente."
         );
@@ -246,14 +206,11 @@ function ResetearContrasenaContent() {
         );
       }
 
-      console.log("Actualizando contraseña para sesión:", session.user.id);
-
       const { error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
 
       if (updateError) {
-        console.error("Error al actualizar contraseña:", updateError);
         throw updateError;
       }
 

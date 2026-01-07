@@ -80,7 +80,6 @@ export default function PromocionesPage() {
       if (error) throw error;
       setCategorias(data || []);
     } catch (error) {
-      console.error("Error loading categorias:", error);
     }
   };
 
@@ -108,7 +107,6 @@ export default function PromocionesPage() {
 
       setPromociones(promocionesWithNames);
     } catch (error) {
-      console.error("Error loading promociones:", error);
       alert("Error al cargar promociones");
     } finally {
       setLoading(false);
@@ -127,7 +125,6 @@ export default function PromocionesPage() {
       if (error) throw error;
       loadPromociones();
     } catch (error) {
-      console.error("Error deleting promocion:", error);
       alert("Error al eliminar promoción");
     }
   };
@@ -144,7 +141,6 @@ export default function PromocionesPage() {
       if (error) throw error;
       loadPromociones();
     } catch (error) {
-      console.error("Error updating estado:", error);
       alert("Error al actualizar estado");
     }
   };

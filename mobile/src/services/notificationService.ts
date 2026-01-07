@@ -25,41 +25,72 @@ Notifications.setNotificationHandler({
 
 /**
  * Solicita permisos de notificaciones al usuario
- */
-/**
- * Solicita permisos de notificaciones al usuario
  * Nota: El sistema mostrará automáticamente un diálogo explicando que ofiSi necesita
  * acceso a las notificaciones para informarte sobre nuevas solicitudes de servicio,
  * actualizaciones de tus trabajos, mensajes de clientes y recordatorios importantes.
+ * 
+ * IMPORTANTE: En Android, esta función debe llamarse cuando la app está completamente
+ * cargada y en primer plano para evitar que la app se cierre.
  */
 export const requestNotificationPermissions = async (): Promise<boolean> => {
   try {
-    // Verificar si ya se solicitó antes
-    const permissionAsked = await AsyncStorage.getItem(NOTIFICATION_PERMISSION_KEY);
-    
-    // Solicitar permisos
-    // Nota: El sistema operativo mostrará automáticamente un diálogo con la explicación
-    // configurada en app.json (iOS) o strings.xml (Android)
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+    // En Android, asegurarse de que la app esté lista antes de solicitar permisos
+    if (Platform.OS === 'android') {
+      // Pequeña pausa para asegurar que la actividad esté completamente lista
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    // Guardar que se solicitó el permiso
-    await AsyncStorage.setItem(NOTIFICATION_PERMISSION_KEY, 'true');
+    // Verificar permisos actuales primero
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    
+    // Si ya tiene permisos, retornar true inmediatamente
+    if (existingStatus === 'granted') {
+      console.log('Permisos de notificaciones ya otorgados');
+      return true;
+    }
 
-    if (finalStatus !== 'granted') {
-      console.log('Permisos de notificaciones no otorgados');
+    // Si el permiso fue denegado permanentemente, no intentar solicitar de nuevo
+    if (existingStatus === 'denied') {
+      console.log('Permisos de notificaciones denegados permanentemente');
+      await AsyncStorage.setItem(NOTIFICATION_PERMISSION_KEY, 'denied');
       return false;
     }
 
-    console.log('Permisos de notificaciones otorgados');
-    return true;
+    // Solicitar permisos solo si no están otorgados y no fueron denegados permanentemente
+    try {
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowAnnouncements: false,
+        },
+      });
+      
+      // Guardar que se solicitó el permiso
+      await AsyncStorage.setItem(NOTIFICATION_PERMISSION_KEY, status);
+
+      if (status !== 'granted') {
+        console.log('Permisos de notificaciones no otorgados:', status);
+        return false;
+      }
+
+      console.log('Permisos de notificaciones otorgados');
+      return true;
+    } catch (requestError: any) {
+      // En Android, si hay un error al solicitar permisos, puede ser porque
+      // la actividad no está lista. Retornar false sin lanzar error.
+      console.error('Error al solicitar permisos de notificaciones:', requestError);
+      
+      // Guardar que hubo un error
+      await AsyncStorage.setItem(NOTIFICATION_PERMISSION_KEY, 'error');
+      
+      // No lanzar el error para evitar que la app se cierre
+      return false;
+    }
   } catch (error) {
-    console.error('Error al solicitar permisos de notificaciones:', error);
+    console.error('Error al verificar/solicitar permisos de notificaciones:', error);
+    // No lanzar el error para evitar que la app se cierre
     return false;
   }
 };
@@ -134,14 +165,38 @@ export const registerPushToken = async (userId: string, token: string): Promise<
 
 /**
  * Inicializa el sistema de notificaciones
+ * @param userId - ID del usuario (opcional)
+ * @param requestPermissionsNow - Si es true, solicita permisos inmediatamente. 
+ *                                 Si es false, solo verifica permisos existentes.
+ *                                 Por defecto es false para evitar cerrar la app en Android.
  */
-export const initializeNotifications = async (userId?: string): Promise<void> => {
+export const initializeNotifications = async (
+  userId?: string,
+  requestPermissionsNow: boolean = false
+): Promise<void> => {
   try {
-    // Solicitar permisos
-    const hasPermission = await requestNotificationPermissions();
+    let hasPermission = false;
+
+    if (requestPermissionsNow) {
+      // Solicitar permisos solo si se solicita explícitamente
+      hasPermission = await requestNotificationPermissions();
+    } else {
+      // Solo verificar permisos existentes sin solicitarlos
+      try {
+        const { status } = await Notifications.getPermissionsAsync();
+        hasPermission = status === 'granted';
+        
+        if (!hasPermission) {
+          console.log('Permisos de notificaciones no otorgados. Se pueden solicitar más tarde.');
+        }
+      } catch (error) {
+        console.error('Error al verificar permisos de notificaciones:', error);
+        hasPermission = false;
+      }
+    }
     
     if (!hasPermission) {
-      console.log('No se otorgaron permisos de notificaciones');
+      console.log('No se pueden inicializar notificaciones sin permisos');
       return;
     }
 
@@ -170,6 +225,7 @@ export const initializeNotifications = async (userId?: string): Promise<void> =>
     }
   } catch (error) {
     console.error('Error al inicializar notificaciones:', error);
+    // No lanzar el error para evitar que la app se cierre
   }
 };
 
@@ -212,13 +268,23 @@ export const setupNotificationListeners = (
 
 /**
  * Programa una notificación local
+ * IMPORTANTE: Esta función NO solicita permisos automáticamente.
+ * Asegúrate de que los permisos estén otorgados antes de llamar esta función.
  */
 export const scheduleLocalNotification = async (
   title: string,
   body: string,
   data?: any
-): Promise<string> => {
+): Promise<string | null> => {
   try {
+    // Verificar permisos antes de programar la notificación
+    const { status } = await Notifications.getPermissionsAsync();
+    
+    if (status !== 'granted') {
+      console.log('No se puede programar notificación: permisos no otorgados');
+      return null;
+    }
+
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title,
@@ -232,7 +298,8 @@ export const scheduleLocalNotification = async (
     return identifier;
   } catch (error) {
     console.error('Error al programar notificación local:', error);
-    throw error;
+    // No lanzar el error para evitar que la app se cierre
+    return null;
   }
 };
 
@@ -256,6 +323,28 @@ export const getStoredPushToken = async (): Promise<string | null> => {
   } catch (error) {
     console.error('Error al obtener token guardado:', error);
     return null;
+  }
+};
+
+/**
+ * Solicita permisos de notificaciones de manera segura
+ * Esta función debe llamarse cuando el usuario explícitamente quiere habilitar notificaciones
+ * (por ejemplo, desde un botón en la UI)
+ * 
+ * @returns Promise<boolean> - true si los permisos fueron otorgados, false en caso contrario
+ */
+export const safelyRequestNotificationPermissions = async (): Promise<boolean> => {
+  try {
+    // En Android, asegurarse de que la app esté completamente lista
+    if (Platform.OS === 'android') {
+      // Esperar un poco más para asegurar que la actividad esté lista
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    return await requestNotificationPermissions();
+  } catch (error) {
+    console.error('Error al solicitar permisos de notificaciones de manera segura:', error);
+    return false;
   }
 };
 
