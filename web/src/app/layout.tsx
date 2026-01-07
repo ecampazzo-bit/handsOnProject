@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ofiSí - Encuentra el profesional que necesitas",
+  title: "ofiSí - Encuentra el servicio que necesitas",
   description:
     "La plataforma que conecta clientes con profesionales de servicios. Rápido, seguro y confiable.",
 };

@@ -321,7 +321,7 @@ export const LoginScreen: React.FC = () => {
             resizeMode="contain"
           />
           <Text style={styles.subtitle}>
-            Encuentra el profesional que necesitas
+            Encuentra el servicio que necesitas
           </Text>
         </View>
 
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 18,
     color: colors.textSecondary,
     textAlign: "center",
   },
