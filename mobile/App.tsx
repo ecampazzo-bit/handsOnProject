@@ -11,6 +11,7 @@ import {
   scheduleLocalNotification,
 } from "./src/services/notificationService";
 import * as Notifications from "expo-notifications";
+import * as Linking from "expo-linking";
 
 // Configurar localización para DateTimePicker en Android
 if (Platform.OS === "android") {
@@ -275,11 +276,164 @@ export default function App() {
       });
     }
 
+    // Manejar deep links para confirmación de email
+    const handleDeepLink = async (url: string) => {
+      console.log("=== Deep link recibido ===", url);
+      
+      try {
+        // Parsear la URL usando expo-linking
+        const parsedUrl = Linking.parse(url);
+        console.log("URL parseada:", JSON.stringify(parsedUrl, null, 2));
+        
+        // Supabase puede enviar el token en diferentes formatos:
+        // 1. ofisi://auth/callback?token_hash=...&type=email
+        // 2. ofisi://#access_token=...&type=email  
+        // 3. ofisi://?token_hash=...&type=email
+        // 4. URL completa de Supabase que redirige
+        
+        const queryParams = parsedUrl.queryParams || {};
+        const hashParams = parsedUrl.queryParams || {}; // Para URLs con fragment (#)
+        
+        // Extraer parámetros de diferentes formatos
+        const tokenHash = queryParams.token_hash || queryParams.token || hashParams.token_hash || hashParams.token;
+        const type = queryParams.type || hashParams.type;
+        const accessToken = queryParams.access_token || hashParams.access_token;
+        const refreshToken = queryParams.refresh_token || hashParams.refresh_token;
+        
+        console.log("Parámetros extraídos:", { 
+          tokenHash: tokenHash ? "presente" : "ausente",
+          type,
+          accessToken: accessToken ? "presente" : "ausente",
+          refreshToken: refreshToken ? "presente" : "ausente"
+        });
+        
+        // Si hay un access_token, Supabase ya procesó la confirmación
+        if (accessToken) {
+          console.log("Token de acceso encontrado, estableciendo sesión...");
+          
+          try {
+            // Intentar establecer la sesión con el token
+            const { data: { session }, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken as string,
+              refresh_token: refreshToken as string || '',
+            });
+            
+            if (sessionError) {
+              console.error("Error al establecer sesión:", sessionError);
+              Alert.alert(
+                "Error al verificar email",
+                `No se pudo verificar tu email: ${sessionError.message}. El enlace puede haber expirado. Por favor, solicita un nuevo enlace de verificación desde la pantalla de login.`,
+                [{ text: "Entendido" }]
+              );
+              return; // No navegar, solo mostrar error
+            } else if (session?.user) {
+              console.log("Email verificado exitosamente:", session.user.email);
+              Alert.alert(
+                "¡Email verificado!",
+                "Tu email ha sido verificado correctamente. Ya puedes iniciar sesión.",
+                [{ text: "OK" }]
+              );
+              return; // No navegar, el usuario puede iniciar sesión normalmente
+            }
+          } catch (sessionError: any) {
+            console.error("Excepción al establecer sesión:", sessionError);
+            Alert.alert(
+              "Error",
+              `Error al procesar la verificación: ${sessionError.message || 'Error desconocido'}. Por favor, intenta nuevamente.`,
+              [{ text: "OK" }]
+            );
+            return;
+          }
+        } 
+        // Si hay token_hash, verificar con verifyOtp
+        else if (tokenHash && type === 'email') {
+          console.log("Procesando confirmación de email con token_hash...");
+          
+          try {
+            // Verificar el email con Supabase
+            const { data, error } = await supabase.auth.verifyOtp({
+              token_hash: tokenHash as string,
+              type: 'email',
+            });
+            
+            if (error) {
+              console.error("Error al verificar email:", error);
+              Alert.alert(
+                "Error al verificar email",
+                `No se pudo verificar tu email: ${error.message}. El enlace puede haber expirado. Por favor, solicita un nuevo enlace de verificación desde la pantalla de login.`,
+                [{ text: "Entendido" }]
+              );
+              return; // No navegar, solo mostrar error
+            } else if (data?.user) {
+              console.log("Email verificado exitosamente:", data.user.email);
+              Alert.alert(
+                "¡Email verificado!",
+                "Tu email ha sido verificado correctamente. Ya puedes iniciar sesión.",
+                [{ text: "OK" }]
+              );
+              return; // No navegar, el usuario puede iniciar sesión normalmente
+            }
+          } catch (verifyError: any) {
+            console.error("Excepción al verificar OTP:", verifyError);
+            Alert.alert(
+              "Error",
+              `Error al procesar la verificación: ${verifyError.message || 'Error desconocido'}. Por favor, intenta nuevamente.`,
+              [{ text: "OK" }]
+            );
+            return;
+          }
+        } else {
+          console.log("URL no contiene parámetros de confirmación de email reconocidos");
+          console.log("Query params:", queryParams);
+          // No es un enlace de confirmación reconocido, no hacer nada
+          // No mostrar error para evitar confusión con otros tipos de deep links
+        }
+      } catch (error: any) {
+        console.error("Error al procesar deep link:", error);
+        Alert.alert(
+          "Error",
+          `Hubo un problema al procesar el enlace de confirmación: ${error.message || 'Error desconocido'}. Por favor, intenta solicitar un nuevo enlace de verificación desde la pantalla de login.`,
+          [{ text: "OK" }]
+        );
+        // NO navegar a ninguna pantalla, solo mostrar el error
+      }
+    };
+
+    // Configurar listener de deep links
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+      console.log("Evento de deep link recibido:", url);
+      handleDeepLink(url);
+    });
+
+    // Verificar si la app se abrió desde un deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        console.log("App abierta desde deep link:", url);
+        handleDeepLink(url);
+      }
+    }).catch((error) => {
+      console.error("Error al obtener URL inicial:", error);
+    });
+
     // Escuchar cambios de autenticación para configurar/limpiar Realtime
     const {
       data: { subscription: authSubscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Cambio de estado de autenticación:", event, session?.user?.id);
+
+      // Manejar confirmación de email
+      if (event === "SIGNED_UP" || event === "USER_UPDATED") {
+        if (session?.user && !session.user.email_confirmed_at) {
+          console.log("Usuario registrado pero email no confirmado");
+        } else if (session?.user?.email_confirmed_at) {
+          console.log("Email confirmado para usuario:", session.user.email);
+          Alert.alert(
+            "¡Email verificado!",
+            "Tu email ha sido verificado correctamente. Ya puedes iniciar sesión.",
+            [{ text: "OK" }]
+          );
+        }
+      }
 
       if (event === "SIGNED_IN" && session?.user?.id) {
         // Usuario inició sesión - guardar sesión y configurar Realtime
@@ -384,6 +538,7 @@ export default function App() {
       }
       authSubscription.unsubscribe();
       appStateSubscription.remove();
+      linkingSubscription.remove();
     };
   }, []);
 
