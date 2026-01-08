@@ -18,6 +18,9 @@ import { PromocionesScreen } from "../screens/PromocionesScreen";
 import { supabase } from "../services/supabaseClient";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { colors } from "../constants/colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const USER_SESSION_KEY = "@handson_user_session";
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -34,15 +37,56 @@ export const AuthNavigator: React.FC = () => {
       try {
         console.log("=== Verificando sesión en AuthNavigator ===");
         
-        // Dar tiempo a Supabase para restaurar la sesión desde AsyncStorage
+        // Dar más tiempo a Supabase para restaurar la sesión desde AsyncStorage
         // Esto es importante porque Supabase necesita tiempo para leer AsyncStorage
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Obtener sesión actual
-        const {
+        let {
           data: { session },
           error,
         } = await supabase.auth.getSession();
+
+        // Si no hay sesión activa, intentar restaurar desde AsyncStorage
+        if (!session && !error) {
+          console.log("No hay sesión activa, intentando restaurar desde AsyncStorage...");
+          try {
+            const savedSession = await AsyncStorage.getItem(USER_SESSION_KEY);
+            
+            if (savedSession) {
+              try {
+                const parsedSession = JSON.parse(savedSession);
+                console.log("Sesión encontrada en AsyncStorage, restaurando...");
+                
+                const {
+                  data: { session: restoredSession },
+                  error: restoreError,
+                } = await supabase.auth.setSession(parsedSession);
+                
+                if (!restoreError && restoredSession) {
+                  console.log("Sesión restaurada exitosamente:", restoredSession.user?.id);
+                  session = restoredSession;
+                  
+                  // Guardar la sesión restaurada
+                  await AsyncStorage.setItem(
+                    USER_SESSION_KEY,
+                    JSON.stringify(restoredSession)
+                  );
+                } else {
+                  console.log("Error al restaurar sesión:", restoreError);
+                  // Limpiar sesión inválida
+                  await AsyncStorage.removeItem(USER_SESSION_KEY);
+                }
+              } catch (parseError) {
+                console.error("Error al parsear sesión guardada:", parseError);
+                // Limpiar sesión corrupta
+                await AsyncStorage.removeItem(USER_SESSION_KEY);
+              }
+            }
+          } catch (storageError) {
+            console.error("Error al acceder a AsyncStorage:", storageError);
+          }
+        }
 
         if (!mounted) return;
 
@@ -78,7 +122,7 @@ export const AuthNavigator: React.FC = () => {
     // Esto también se dispara cuando Supabase restaura la sesión desde AsyncStorage
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("AuthNavigator - Cambio de estado:", event, session?.user?.id);
       
       if (!mounted) return;
@@ -86,6 +130,18 @@ export const AuthNavigator: React.FC = () => {
       if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         if (session?.user) {
           console.log("Sesión restaurada/iniciada, navegando a Home");
+          
+          // Guardar sesión en AsyncStorage para persistencia
+          try {
+            await AsyncStorage.setItem(
+              USER_SESSION_KEY,
+              JSON.stringify(session)
+            );
+            console.log("Sesión guardada en AsyncStorage después de", event);
+          } catch (error) {
+            console.error("Error al guardar sesión:", error);
+          }
+          
           setIsAuthenticated(true);
           setIsLoading(false);
           // Navegar a Home cuando hay sesión
@@ -95,9 +151,25 @@ export const AuthNavigator: React.FC = () => {
               routes: [{ name: "Home" }],
             });
           }
+        } else {
+          // Si no hay sesión después de INITIAL_SESSION, el usuario no está autenticado
+          if (event === "INITIAL_SESSION") {
+            console.log("INITIAL_SESSION sin sesión, usuario no autenticado");
+            setIsAuthenticated(false);
+            setIsLoading(false);
+          }
         }
       } else if (event === "SIGNED_OUT") {
         console.log("Usuario cerró sesión, navegando a Login");
+        
+        // Limpiar sesión de AsyncStorage
+        try {
+          await AsyncStorage.removeItem(USER_SESSION_KEY);
+          console.log("Sesión eliminada de AsyncStorage después de SIGNED_OUT");
+        } catch (error) {
+          console.error("Error al eliminar sesión:", error);
+        }
+        
         setIsAuthenticated(false);
         setIsLoading(false);
         // Navegar a Login cuando el usuario cierra sesión

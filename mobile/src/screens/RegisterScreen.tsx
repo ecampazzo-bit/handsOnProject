@@ -1086,8 +1086,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backButton: {
-    width: 80,
-    minWidth: 80,
+    width: 100,
+    minWidth: 100,
   },
   nextButton: {
     flex: 1,
