@@ -9,7 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Platform,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { saveUserServices, getCurrentUserId } from "../services/authService";
@@ -41,6 +43,7 @@ export const ServiceSelectionScreen: React.FC = (props: any) => {
   const route = props.route || { params: { userId: undefined } };
   const paramUserId = route.params?.userId;
   const navigation = useNavigation<ServiceSelectionScreenNavigationProp>();
+  const insets = useSafeAreaInsets();
   const [selectedServices, setSelectedServices] = useState<Set<number>>(
     new Set()
   );
@@ -224,7 +227,7 @@ export const ServiceSelectionScreen: React.FC = (props: any) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? Math.max(insets.top, 24) : 24 }]}>
         <Text style={styles.title}>Selecciona tus servicios</Text>
         <Text style={styles.subtitle}>
           Selecciona todos los servicios que ofreces ({selectedServices.size}{" "}
@@ -376,7 +379,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
     backgroundColor: colors.background,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -491,6 +495,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24, // Espacio extra para el área segura inferior en iOS
     backgroundColor: colors.background,
     borderTopWidth: 1,
     borderTopColor: colors.border,

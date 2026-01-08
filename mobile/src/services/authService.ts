@@ -139,8 +139,7 @@ export const signUp = async (
           email,
           password: passwordParam,
           options: {
-            // Deshabilitar confirmación de email para desarrollo
-            emailRedirectTo: undefined,
+            emailRedirectTo: "https://ofisi.ar/confirmar-email",
           },
         });
 
@@ -636,7 +635,7 @@ export const resendVerificationEmail = async (
       type: "signup",
       email: cleanEmail,
       options: {
-        emailRedirectTo: undefined, // No redirigir después de confirmar
+        emailRedirectTo: "https://ofisi.ar/confirmar-email",
       },
     });
 

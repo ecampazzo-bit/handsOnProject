@@ -134,15 +134,33 @@ export const LoginScreen: React.FC = () => {
       const { error } = await supabase.auth.resetPasswordForEmail(
         forgotPasswordEmail.trim(),
         {
-          redirectTo: "https://localhost:3000/auth/reset-password",
+          redirectTo: "https://ofisi.ar/resetear-contrasena",
         }
       );
 
       if (error) {
+        console.error("Error completo al enviar email de recuperación:", {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+          name: error.name,
+        });
+        
+        let errorMessage = error.message || "No se pudo enviar el email de reset.";
+        
+        // Mensajes más específicos según el tipo de error
+        if (error.message?.includes("redirect") || error.message?.toLowerCase().includes("redirect")) {
+          errorMessage = "Error de configuración: La URL de redirección no está configurada en Supabase. Por favor, verifica la configuración.";
+        } else if (error.message?.includes("smtp") || error.message?.toLowerCase().includes("email")) {
+          errorMessage = "Error de SMTP: No se puede enviar el email. Por favor, verifica la configuración SMTP en Supabase.";
+        } else if (error.status === 429) {
+          errorMessage = "Demasiados intentos. Por favor, espera unos minutos antes de intentar nuevamente.";
+        }
+        
         Alert.alert(
-          "Error",
-          error.message ||
-            "No se pudo enviar el email de reset. Por favor, intenta nuevamente."
+          "Error al enviar email",
+          errorMessage + "\n\nDetalles técnicos: " + (error.status || "Sin código de error"),
+          [{ text: "OK" }]
         );
         return;
       }

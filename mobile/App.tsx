@@ -400,18 +400,18 @@ export default function App() {
     };
 
     // Configurar listener de deep links
-    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+    const linkingSubscription = Linking.addEventListener('url', ({ url }: { url: string }) => {
       console.log("Evento de deep link recibido:", url);
       handleDeepLink(url);
     });
 
     // Verificar si la app se abrió desde un deep link
-    Linking.getInitialURL().then((url) => {
+    Linking.getInitialURL().then((url: string | null) => {
       if (url) {
         console.log("App abierta desde deep link:", url);
         handleDeepLink(url);
       }
-    }).catch((error) => {
+    }).catch((error: Error) => {
       console.error("Error al obtener URL inicial:", error);
     });
 
@@ -422,7 +422,7 @@ export default function App() {
       console.log("Cambio de estado de autenticación:", event, session?.user?.id);
 
       // Manejar confirmación de email
-      if (event === "SIGNED_UP" || event === "USER_UPDATED") {
+      if (event === "USER_UPDATED") {
         if (session?.user && !session.user.email_confirmed_at) {
           console.log("Usuario registrado pero email no confirmado");
         } else if (session?.user?.email_confirmed_at) {
