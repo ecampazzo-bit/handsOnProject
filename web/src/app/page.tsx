@@ -619,6 +619,11 @@ export default function Home() {
                     Política de Privacidad
                   </Link>
                 </li>
+                <li>
+                  <Link href="/eliminar-cuenta" className="hover:text-white transition">
+                    Eliminar Cuenta
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>

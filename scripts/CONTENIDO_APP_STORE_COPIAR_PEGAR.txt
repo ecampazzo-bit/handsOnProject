@@ -1,0 +1,27 @@
+=== NOMBRE DE LA APP ===
+ofiSí
+
+=== SUBTÍTULO ===
+Servicios a Domicilio
+
+=== PALABRAS CLAVE ===
+servicios,domicilio,prestadores,profesionales,plomero,electricista,reparación,construcción,oficios
+
+=== NOTAS DE VERSIÓN (v1.3.0) ===
+🎁 ¡Nueva función: Promociones Especiales!
+
+Descubre ofertas exclusivas y promociones especiales directamente desde la app. Navega por un carrusel automático de promociones, solicita tu cupón por WhatsApp con un solo toque y comparte las mejores ofertas con tus contactos.
+
+✨ Mejoras en esta versión:
+• Nuevo sistema de promociones con cupones especiales y seguimiento
+• Interfaz mejorada y más intuitiva en todas las pantallas
+• Correcciones de errores y mejor rendimiento general
+• Mejoras en la visualización de trabajos en curso y cotizaciones
+• Optimización de botones y diseño para mejor experiencia de usuario
+
+🔧 Correcciones:
+• Mejoras en la carga de imágenes de portfolio
+• Corrección de duplicación de notificaciones
+• Optimización de rendimiento y estabilidad
+
+¡Actualiza ahora y aprovecha las mejores promociones disponibles!

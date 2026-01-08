@@ -144,3 +144,5 @@ Abre la aplicación de llamadas con un número.
 - ✅ Consistencia en toda la app
 - ✅ Mejor debugging con logging detallado
 
+
+

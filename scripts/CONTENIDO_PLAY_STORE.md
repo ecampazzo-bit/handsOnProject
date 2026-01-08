@@ -138,6 +138,25 @@ Descarga ofiSí hoy y comienza a conectar con los mejores profesionales de servi
 
 ---
 
+## 4. Instrucciones para Acceder a Funciones Restringidas
+**Máximo: 5 instrucciones**
+
+```
+1. Para acceder como cliente: Regístrate con tu correo electrónico o número de teléfono. Una vez verificado tu correo, podrás buscar servicios, crear solicitudes y chatear con prestadores.
+
+2. Para acceder como prestador: Durante el registro, selecciona la opción "Soy prestador de servicios". Completa tu perfil con información profesional y verifica tu identidad para acceder a todas las funciones de prestador.
+
+3. Para ver perfiles completos y enviar mensajes: Debes estar registrado e iniciar sesión en la aplicación. Los perfiles completos y la función de chat solo están disponibles para usuarios autenticados.
+
+4. Para enviar cotizaciones: Debes estar registrado como prestador y tener tu perfil completo. Las cotizaciones solo pueden ser enviadas por prestadores verificados a solicitudes de clientes.
+
+5. Para acceder a funciones avanzadas: Algunas funciones como gestionar trabajos, ver estadísticas y recibir notificaciones requieren que completes la verificación de tu cuenta y permitas los permisos de notificaciones en la configuración de tu dispositivo.
+```
+
+**Instrucciones: 5/5** ✅
+
+---
+
 ## 📋 Resumen de Caracteres
 
 - **Título**: 30/50 ✅
@@ -170,6 +189,8 @@ servicios a domicilio, prestadores, profesionales, plomero, electricista, técni
 - [ ] Revisar que el título no exceda 50 caracteres
 - [ ] Verificar que la descripción corta no exceda 80 caracteres
 - [ ] Confirmar que la descripción completa no exceda 4,000 caracteres
+- [ ] Revisar las instrucciones de acceso a funciones restringidas (máximo 5)
+- [ ] Verificar que las instrucciones sean claras y precisas
 - [ ] Revisar ortografía y gramática
 - [ ] Verificar que todas las características mencionadas estén implementadas
 - [ ] Asegurarse de que los emojis se muestren correctamente (opcional, puedes quitarlos si prefieres)

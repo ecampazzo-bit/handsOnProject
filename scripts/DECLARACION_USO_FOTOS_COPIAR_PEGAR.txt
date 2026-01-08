@@ -1,0 +1,11 @@
+ofiSí utiliza fotos para:
+
+1. FOTOS DE PERFIL: Los usuarios pueden tomar o seleccionar una foto de perfil para personalizar su cuenta y crear un perfil profesional visible para otros usuarios.
+
+2. PORTFOLIO DE TRABAJOS: Los prestadores pueden subir fotos de trabajos realizados para mostrar su experiencia y calidad de trabajo a clientes potenciales.
+
+3. DOCUMENTACIÓN DE SOLICITUDES: Los clientes pueden adjuntar fotos a sus solicitudes de servicio para describir mejor el trabajo necesario, facilitando cotizaciones más precisas.
+
+4. VISUALIZACIÓN: La aplicación muestra imágenes de categorías y promociones para mejorar la experiencia visual.
+
+Las fotos se almacenan de forma segura y solo son accesibles por usuarios autorizados según la funcionalidad. NO se comparten con terceros ni se usan para publicidad sin consentimiento.

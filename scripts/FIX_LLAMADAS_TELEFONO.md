@@ -123,3 +123,5 @@ iOS no requiere permisos especiales para abrir la aplicación de llamadas. La fu
 2. Verificar que los números en la base de datos estén en formato correcto
 3. Si es necesario, actualizar números existentes en la base de datos
 
+
+

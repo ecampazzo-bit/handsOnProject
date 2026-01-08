@@ -493,7 +493,15 @@ export default function PrivacidadPage() {
               </li>
               <li>
                 <strong>Derecho de Eliminación</strong>: Solicitar la
-                eliminación de su información personal.
+                eliminación de su información personal. Puede eliminar su cuenta
+                directamente desde{" "}
+                <Link
+                  href="/eliminar-cuenta"
+                  className="text-blue-600 hover:underline"
+                >
+                  esta página
+                </Link>
+                .
               </li>
               <li>
                 <strong>Derecho de Portabilidad</strong>: Recibir su información
