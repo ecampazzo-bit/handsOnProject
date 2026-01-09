@@ -587,6 +587,22 @@ export const signIn = async (
       return { user: null, error: userError };
     }
 
+    // Verificar si el usuario está activo
+    if (userData && userData.activo === false) {
+      console.log("Usuario desactivado intentando iniciar sesión:", data.user.id);
+      
+      // Cerrar la sesión que se creó antes de detectar que está desactivado
+      await supabase.auth.signOut();
+      await AsyncStorage.removeItem(USER_SESSION_KEY);
+      
+      return {
+        user: null,
+        error: {
+          message: "Tu cuenta ha sido desactivada. Por favor, contacta al soporte para más información.",
+        },
+      };
+    }
+
     return { user: userData as User, error: null };
   } catch (error) {
     return {
@@ -746,6 +762,22 @@ export const getCurrentUser = async (): Promise<{
     if (error) {
       console.error("Error al obtener usuario:", error);
       return { user: null, error };
+    }
+
+    // Verificar si el usuario está activo
+    if (userData && userData.activo === false) {
+      console.log("Usuario desactivado detectado en getCurrentUser:", authUser.id);
+      
+      // Cerrar la sesión del usuario desactivado
+      await supabase.auth.signOut();
+      await AsyncStorage.removeItem(USER_SESSION_KEY);
+      
+      return {
+        user: null,
+        error: {
+          message: "Tu cuenta ha sido desactivada. Por favor, contacta al soporte para más información.",
+        },
+      };
     }
 
     return { user: userData as User, error: null };
