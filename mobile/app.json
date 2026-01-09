@@ -3,7 +3,7 @@
     "name": "ofiSí",
     "slug": "handson-app",
     "owner": "ecampazzo",
-    "version": "1.3.2",
+    "version": "1.3.3",
     "orientation": "portrait",
     "icon": "./assets/logocolor.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ofisi.app",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "infoPlist": {
         "NSCameraUsageDescription": "ofiSi necesita acceso a tu cámara para que puedas tomar fotos de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes.",
         "NSPhotoLibraryUsageDescription": "ofiSi necesita acceso a tu galería de fotos para que puedas seleccionar imágenes de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes.",
@@ -37,7 +37,7 @@
         "backgroundColor": "#4F46E5"
       },
       "package": "com.ofisi.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
