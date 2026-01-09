@@ -17,7 +17,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ofisi.app",
+      "bundleIdentifier": "com.ofisi.mobile",
       "buildNumber": "7",
       "infoPlist": {
         "NSCameraUsageDescription": "ofiSi necesita acceso a tu cámara para que puedas tomar fotos de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes.",
@@ -36,7 +36,7 @@
         "foregroundImage": "./assets/logocolor.png",
         "backgroundColor": "#4F46E5"
       },
-      "package": "com.ofisi.app",
+      "package": "com.ofisi.mobile",
       "versionCode": 7,
       "permissions": [
         "ACCESS_FINE_LOCATION",
