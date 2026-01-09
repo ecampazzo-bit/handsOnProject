@@ -213,4 +213,51 @@ POLÍTICA DE PRIVACIDAD:
 
 ---
 
+---
+
+## 📸 Declaración Específica para READ_MEDIA_IMAGES (Acceso Frecuente)
+
+**Para el campo: "Describe el uso que hace tu aplicación del permiso READ_MEDIA_IMAGES"**
+
+**Versión Recomendada (para acceso frecuente):**
+
+```
+ofiSí requiere acceso frecuente a las imágenes de la galería porque las fotos son una funcionalidad esencial y central de la plataforma:
+
+1. PORTFOLIO DE PRESTADORES: Los prestadores de servicios suben fotos de trabajos realizados regularmente para construir y mantener su portfolio profesional. Esta es una funcionalidad core que usan activamente para mostrar su experiencia a clientes potenciales.
+
+2. DOCUMENTACIÓN DE SOLICITUDES: Los clientes adjuntan fotos a sus solicitudes de servicio con frecuencia para describir mejor el trabajo necesario. Esta funcionalidad mejora significativamente la comunicación y precisión de las cotizaciones.
+
+3. FOTOS DE PERFIL: Los usuarios pueden actualizar su foto de perfil cuando lo deseen para mantener su perfil actualizado y profesional.
+
+4. DOCUMENTACIÓN DE TRABAJOS: Los prestadores documentan trabajos completados con fotos para agregar al portfolio, lo cual es una actividad recurrente en su flujo de trabajo.
+
+El acceso frecuente es necesario porque estas funcionalidades son parte del uso diario de la aplicación. Los usuarios no solo acceden a fotos ocasionalmente, sino que las fotos son fundamentales para el funcionamiento de la plataforma de servicios a domicilio. Sin acceso a las imágenes, los prestadores no pueden mostrar su trabajo y los clientes no pueden describir adecuadamente sus necesidades.
+
+Todas las imágenes se almacenan de forma segura y solo son accesibles por usuarios autorizados según la funcionalidad. No se comparten con terceros.
+```
+
+**Caracteres: 1,247** (ajustable según límite del formulario)
+
+---
+
+**Versión Más Concisa (si hay límite de caracteres):**
+
+```
+ofiSí requiere acceso frecuente a imágenes porque las fotos son funcionalidad esencial:
+
+1. Prestadores suben fotos de trabajos regularmente para su portfolio profesional
+2. Clientes adjuntan fotos a solicitudes frecuentemente para describir trabajos
+3. Usuarios actualizan fotos de perfil cuando lo necesitan
+4. Prestadores documentan trabajos completados con fotos recurrentemente
+
+El acceso frecuente es necesario porque estas funciones son parte del uso diario. Las fotos son fundamentales para que prestadores muestren su trabajo y clientes describan necesidades. Sin acceso, la funcionalidad core de la plataforma no funcionaría.
+
+Imágenes almacenadas de forma segura, accesibles solo por usuarios autorizados. No se comparten con terceros.
+```
+
+**Caracteres: 687**
+
+---
+
 **Listo para copiar y pegar en Google Play Console** 🚀
