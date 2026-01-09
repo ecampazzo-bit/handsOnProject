@@ -28,6 +28,30 @@ export const getPromocionesActivas = async (
 ): Promise<Promocion[]> => {
   try {
     const now = new Date().toISOString();
+    console.log("🔍 Buscando promociones activas:", { tipoUsuario, now });
+    console.log("🔍 Fecha actual (ISO):", now);
+
+    // Primero intentar obtener todas las promociones para debug
+    const { data: allPromociones, error: allError } = await supabase
+      .from("promociones")
+      .select("*")
+      .limit(10);
+    
+    if (allError) {
+      console.error("❌ Error al obtener todas las promociones (debug):", allError);
+    } else {
+      console.log(`📊 Total de promociones en BD: ${allPromociones?.length || 0}`);
+      if (allPromociones && allPromociones.length > 0) {
+        console.log("📊 Ejemplo de promoción:", {
+          id: allPromociones[0].id,
+          activa: allPromociones[0].activa,
+          estado: allPromociones[0].estado,
+          fecha_inicio: allPromociones[0].fecha_inicio,
+          fecha_fin: allPromociones[0].fecha_fin,
+          publico_objetivo: allPromociones[0].publico_objetivo,
+        });
+      }
+    }
 
     // Construir la query base
     let query = supabase
@@ -55,8 +79,46 @@ export const getPromocionesActivas = async (
     const { data, error } = await query;
 
     if (error) {
-      console.error("Error al obtener promociones:", error);
+      console.error("❌ Error al obtener promociones:", error);
+      console.error("Código de error:", error.code);
+      console.error("Mensaje:", error.message);
+      console.error("Detalles:", JSON.stringify(error, null, 2));
+      
+      // Si es error de RLS, intentar sin filtros de fecha primero
+      if (error.code === "PGRST301" || error.message?.includes("permission denied") || error.message?.includes("RLS")) {
+        console.log("⚠️ Posible problema de RLS, intentando query más simple...");
+        const simpleQuery = supabase
+          .from("promociones")
+          .select("*")
+          .eq("activa", true)
+          .limit(50);
+        
+        const { data: simpleData, error: simpleError } = await simpleQuery;
+        if (!simpleError && simpleData) {
+          console.log(`✅ Query simple funcionó, encontradas ${simpleData.length} promociones`);
+          // Filtrar manualmente por fecha y estado
+          const filtered = simpleData.filter((p: any) => {
+            const inicio = new Date(p.fecha_inicio);
+            const fin = new Date(p.fecha_fin);
+            const ahora = new Date();
+            return p.estado === "activa" && inicio <= ahora && fin >= ahora;
+          });
+          console.log(`✅ Después de filtrar por fecha: ${filtered.length} promociones`);
+          return filtered as Promocion[];
+        }
+      }
+      
       throw error;
+    }
+
+    console.log(`✅ Promociones encontradas: ${data?.length || 0}`);
+    if (data && data.length > 0) {
+      console.log("📋 Primeras promociones:", data.slice(0, 3).map((p: any) => ({
+        id: p.id,
+        titulo: p.titulo,
+        activa: p.activa,
+        estado: p.estado,
+      })));
     }
 
     // Ordenar resultados: primero por orden_display, luego por fecha_creacion descendente
