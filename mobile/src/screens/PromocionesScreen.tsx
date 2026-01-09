@@ -51,65 +51,178 @@ const PromocionesScreenComponent: React.FC = () => {
   const isMountedRef = useRef(true);
   const carouselStartedRef = useRef(false); // Flag para evitar iniciar carrusel múltiples veces
   const promocionesRef = useRef<Promocion[]>([]); // Referencia para acceder a promociones actuales en intervalos
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null); // Intervalo para actualizar promociones periódicamente
+  const lastRefreshTimeRef = useRef<number>(0); // Timestamp de la última actualización
 
   // Cargar promociones solo una vez al montar el componente
   useEffect(() => {
     console.log("🎁 ===== useEffect EJECUTADO =====");
     console.log("🎁 hasLoadedRef.current:", hasLoadedRef.current);
     console.log("🎁 isMountedRef.current:", isMountedRef.current);
-    console.log("🎁 loading state:", loading);
+    console.log("🎁 loading state inicial:", loading);
+    console.log("🎁 promociones.length:", promociones.length);
     
     isMountedRef.current = true;
     
-    // Si ya se cargó pero loading sigue siendo true después de un tiempo, forzar recarga
-    if (hasLoadedRef.current) {
-      console.log("🎁 ⚠️ Ya se intentó cargar antes");
-      // Verificar si la carga está colgada después de 3 segundos
-      setTimeout(() => {
-        setLoading((currentLoading) => {
-          if (currentLoading) {
-            console.error("🎁 ❌ Carga colgada detectada, reseteando...");
-            hasLoadedRef.current = false;
-            setError("La carga se interrumpió. Usa el botón Reintentar.");
-            return false;
-          }
-          return currentLoading;
-        });
-      }, 3000);
-      return; // No intentar cargar de nuevo si ya se intentó
+    // Si ya se cargó exitosamente y hay promociones, no recargar
+    if (hasLoadedRef.current && !loading && promociones.length > 0) {
+      console.log("🎁 ✅ Ya hay promociones cargadas, no recargar");
+      return () => {
+        isMountedRef.current = false;
+      };
     }
     
-    // Primera carga
-    console.log("🎁 ✅ Llamando a loadPromociones() por primera vez...");
-    hasLoadedRef.current = true; // Marcar como intentado ANTES de llamar
+    // Si ya se intentó cargar pero sigue cargando, verificar si está colgada
+    // Si lleva más de 6 segundos desde que se montó el componente, forzar nueva carga
+    if (hasLoadedRef.current && loading) {
+      console.log("🎁 ⚠️ Ya se intentó cargar antes y sigue cargando, verificando si está colgada...");
+      
+      // Si lleva más de 6 segundos cargando, resetear y volver a intentar
+      const hangCheck = setTimeout(() => {
+        if (isMountedRef.current) {
+          console.error("🎁 ❌ Carga colgada detectada después de 6s, reseteando y reintentando...");
+          hasLoadedRef.current = false;
+          setLoading(false);
+          // Reintentar inmediatamente
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              console.log("🎁 🔄 Reintentando carga de promociones...");
+              loadPromociones(true).catch((err) => {
+                console.error("🎁 ❌ Error en reintento:", err);
+                setError(err instanceof Error ? err.message : "Error al cargar promociones");
+              });
+            }
+          }, 100);
+        }
+      }, 6000);
+      
+      return () => {
+        clearTimeout(hangCheck);
+        isMountedRef.current = false;
+      };
+    }
     
-    // Llamar loadPromociones y manejar errores
-    loadPromociones().catch((err) => {
-      console.error("🎁 ❌ Error capturado en useEffect:", err);
+    // Si ya intentó cargar y no hay promociones pero no está cargando, fue un error
+    if (hasLoadedRef.current && !loading && promociones.length === 0) {
+      console.log("🎁 ⚠️ Ya se intentó cargar antes pero no hay promociones, no recargar automáticamente");
+      return () => {
+        isMountedRef.current = false;
+      };
+    }
+    
+    // Primera carga - ejecutar loadPromociones
+    console.log("🎁 ✅ Llamando a loadPromociones() por primera vez...");
+    console.log("🎁 ANTES de marcar hasLoadedRef.current = true");
+    hasLoadedRef.current = true; // Marcar como intentado ANTES de llamar
+    console.log("🎁 DESPUÉS de marcar hasLoadedRef.current = true");
+    console.log("🎁 hasLoadedRef.current ahora es:", hasLoadedRef.current);
+    
+    // Llamar loadPromociones SIN await para no bloquear
+    console.log("🎁 ANTES de llamar loadPromociones(false)");
+    const loadResult = loadPromociones(false);
+    console.log("🎁 DESPUÉS de llamar loadPromociones(false), resultado:", loadResult);
+    
+    loadResult.catch((err) => {
+      console.error("🎁 ❌ Error capturado en useEffect catch:", err);
       hasLoadedRef.current = false; // Permitir reintento
-      setLoading(false);
-      setError(err instanceof Error ? err.message : "Error al cargar promociones");
+      if (isMountedRef.current) {
+        setLoading(false);
+        setError(err instanceof Error ? err.message : "Error al cargar promociones");
+      }
     });
 
     return () => {
       isMountedRef.current = false;
-      // Limpiar intervalo al desmontar
+      // Limpiar intervalos al desmontar
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
     };
-  }, []);
+  }, []); // Sin dependencias - solo ejecutar una vez al montar
 
-  // NO recargar promociones cuando se enfoca - solo asegurar que el carrusel esté corriendo
+  // Configurar actualización periódica de promociones (cada 5 minutos)
+  useEffect(() => {
+    const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutos en milisegundos
+    
+    console.log("🎁 Configurando actualización periódica de promociones cada 5 minutos...");
+    
+    refreshIntervalRef.current = setInterval(() => {
+      if (isMountedRef.current && hasLoadedRef.current && !loading) {
+        const now = Date.now();
+        const timeSinceLastRefresh = now - lastRefreshTimeRef.current;
+        
+        // Solo recargar si ha pasado al menos 4 minutos (evitar sobrecarga)
+        const MIN_INTERVAL = 4 * 60 * 1000; // 4 minutos mínimo
+        
+        if (timeSinceLastRefresh >= MIN_INTERVAL) {
+          console.log("🎁 ⏰ Actualización periódica: recargando promociones...");
+          loadPromociones(true).catch((err) => {
+            console.error("🎁 ❌ Error en actualización periódica:", err);
+          });
+        } else {
+          console.log(`🎁 ⏰ Actualización periódica: omitiendo (pasaron solo ${Math.round(timeSinceLastRefresh / 1000)} segundos)`);
+        }
+      } else {
+        if (!isMountedRef.current) {
+          console.log("🎁 ⏰ Actualización periódica: componente desmontado, omitiendo");
+        } else if (!hasLoadedRef.current) {
+          console.log("🎁 ⏰ Actualización periódica: aún no se ha cargado, omitiendo");
+        } else if (loading) {
+          console.log("🎁 ⏰ Actualización periódica: ya está cargando, omitiendo");
+        }
+      }
+    }, REFRESH_INTERVAL);
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+        console.log("🎁 ⏰ Intervalo de actualización periódica limpiado");
+      }
+    };
+  }, [loading]); // Depender de loading para verificar el estado actual
+
+  // Recargar promociones cuando se enfoca la pantalla (para obtener nuevas promociones activadas)
   useFocusEffect(
     useCallback(() => {
-      // NO hacer nada al enfocar - evitar recargas innecesarias
-      // El carrusel se iniciará automáticamente cuando las promociones se carguen
+      console.log("🎁 useFocusEffect ejecutado - verificando si recargar promociones...");
+      
+      // Solo recargar si:
+      // 1. Ya se cargó al menos una vez (hasLoadedRef.current === true)
+      // 2. No está cargando actualmente
+      // 3. Ha pasado al menos 30 segundos desde la última actualización (evitar recargas excesivas)
+      const now = Date.now();
+      const timeSinceLastRefresh = now - lastRefreshTimeRef.current;
+      const MIN_REFRESH_INTERVAL = 30000; // 30 segundos mínimo entre recargas por focus
+      
+      if (
+        hasLoadedRef.current &&
+        !loading &&
+        timeSinceLastRefresh >= MIN_REFRESH_INTERVAL
+      ) {
+        console.log("🎁 Recargando promociones al enfocar (pasaron", Math.round(timeSinceLastRefresh / 1000), "segundos)");
+        loadPromociones(true).catch((err) => {
+          console.error("🎁 Error al recargar promociones en focus:", err);
+        });
+      } else {
+        if (!hasLoadedRef.current) {
+          console.log("🎁 Aún no se ha cargado por primera vez, esperando...");
+        } else if (loading) {
+          console.log("🎁 Ya está cargando, omitiendo recarga por focus");
+        } else {
+          console.log("🎁 Muy pronto para recargar (pasaron solo", Math.round(timeSinceLastRefresh / 1000), "segundos)");
+        }
+      }
+      
       return () => {
         // NO limpiar el intervalo al desenfocar
       };
-    }, []) // Sin dependencias para evitar re-ejecuciones
+    }, [loading]) // Depender de loading para verificar el estado actual
   );
 
   // Actualizar referencia cuando cambian las promociones
@@ -212,32 +325,30 @@ const PromocionesScreenComponent: React.FC = () => {
   };
 
   const loadPromociones = async (forceReload: boolean = false) => {
-    try {
-      console.log("🎁 ===== loadPromociones INICIADO =====");
-      console.log("🎁 Parámetros:", { forceReload, loading, hasLoaded: hasLoadedRef.current });
-      
-      // Prevenir múltiples cargas simultáneas, a menos que sea forzada
-      if (loading && !forceReload) {
-        console.log("⏸️ Carga ya en progreso, omitiendo...");
-        return;
-      }
-      
-      console.log("🎁 Continuando con la carga...");
-    } catch (earlyError) {
-      console.error("🎁 ❌ Error temprano en loadPromociones:", earlyError);
-      setLoading(false);
-      setError("Error al iniciar la carga de promociones");
-      return;
-    }
-
+    const functionId = Math.random().toString(36).substring(7);
+    console.log(`🎁 ===== loadPromociones INICIADO [${functionId}] =====`);
+    console.log(`🎁 Parámetros [${functionId}]:`, { forceReload, loading, hasLoaded: hasLoadedRef.current });
+    
     const startTime = Date.now();
-    const MAX_TOTAL_TIME = 10000; // 10 segundos máximo total (aumentado de 5)
+    const MAX_TOTAL_TIME = 10000; // 10 segundos máximo total (aumentado para dar más tiempo)
+
+    // Timeout global absoluto - garantiza que siempre termine
+    let globalTimeout: NodeJS.Timeout | null = setTimeout(() => {
+      console.error(`⏱️ TIMEOUT GLOBAL [${functionId}] alcanzado (10s), forzando finalización`);
+      if (isMountedRef.current) {
+        promocionesRef.current = [];
+        setPromociones([]);
+        setLoading(false);
+        setError("Timeout al cargar promociones. Intenta nuevamente.");
+        hasLoadedRef.current = false; // Permitir reintento
+      }
+    }, MAX_TOTAL_TIME);
 
     try {
-      console.log("🔄 setLoading(true) ejecutado");
+      console.log(`🔄 [${functionId}] setLoading(true) ejecutado`);
       setLoading(true);
       setError(null); // Limpiar errores previos
-      console.log("🔄 Iniciando carga de promociones...", { forceReload, startTime });
+      console.log(`🔄 [${functionId}] Iniciando carga de promociones...`, { forceReload, startTime });
       
       // Resetear flag si es recarga forzada
       if (forceReload) {
@@ -248,187 +359,119 @@ const PromocionesScreenComponent: React.FC = () => {
       let promocionesActivas: Promocion[] = [];
       let tipo: "cliente" | "prestador" | "ambos" | null = null;
 
-      // Obtener tipo de usuario en paralelo (con timeout muy corto)
-      // Si falla, continuar sin tipo (las promociones generales deberían estar disponibles)
-      const userPromise = getCurrentUser().catch((err) => {
-        console.log("⚠️ Error obteniendo usuario, continuando sin tipo:", err);
-        console.log("ℹ️ Se cargarán promociones generales disponibles para todos");
-        return { user: null, error: null };
-      });
-
-      // Solicitar permisos de ubicación en paralelo (con timeout corto)
-      const permissionsPromise = Location.getForegroundPermissionsAsync()
-        .catch(() => Location.requestForegroundPermissionsAsync())
-        .catch((err) => {
-          console.log("⚠️ Error obteniendo permisos:", err);
-          return { status: "denied" };
-        });
-
-      // Ejecutar ambas en paralelo con timeout corto
+      // PASO 1: Obtener tipo de usuario (rápido, con timeout)
+      console.log(`🔄 [${functionId}] Paso 1: Obteniendo usuario...`);
       try {
-        const [userResult, permissionsResult] = await Promise.all([
-          withTimeout(userPromise, 1500, "Timeout usuario"),
-          withTimeout(permissionsPromise, 1000, "Timeout permisos"),
-        ]);
-
+        const userResult = await withTimeout(getCurrentUser(), 2000, "Timeout usuario");
         if (userResult?.user) {
           tipo = userResult.user.tipo_usuario || null;
           setTipoUsuario(tipo);
-          console.log(`👤 Tipo de usuario detectado: ${tipo}`);
+          console.log(`👤 [${functionId}] Tipo de usuario detectado: ${tipo}`);
         } else {
-          console.log("👤 No hay usuario autenticado, cargando promociones generales");
-          tipo = null; // Asegurar que tipo sea null si no hay usuario
+          console.log(`👤 [${functionId}] No hay usuario autenticado, cargando promociones generales`);
+          tipo = null;
         }
+      } catch (userError) {
+        console.log(`⚠️ [${functionId}] Error obteniendo usuario, continuando sin tipo:`, userError);
+        tipo = null;
+      }
 
-        const status = permissionsResult?.status || "denied";
-        console.log(`📍 Estado de permisos: ${status}`);
+      // PASO 2: Ir DIRECTAMENTE a promociones globales (sin verificar permisos primero)
+      // Esto evita que se quede bloqueado esperando permisos
+      console.log(`🔄 [${functionId}] Paso 2: Cargando promociones globales (sin verificar permisos primero)...`);
+      setLocationPermissionGranted(false); // Asumir sin permisos por ahora
+      
+      try {
+        const globalPromise = getPromocionesActivas(tipo);
+        const timeElapsed = Date.now() - startTime;
+        const timeRemaining = Math.max(5000, MAX_TOTAL_TIME - timeElapsed - 2000); // Al menos 5 segundos
 
-        // Si no hay permisos o no se obtuvieron, ir directo a promociones globales
-        if (status !== "granted") {
-          setLocationPermissionGranted(false);
-          console.log(
-            "📍 Sin permisos de ubicación, usando promociones globales"
-          );
-
-          // Ir directo a promociones globales (caso más común)
-          const globalPromise = getPromocionesActivas(tipo);
-          const timeElapsed = Date.now() - startTime;
-          const timeRemaining = Math.max(2000, MAX_TOTAL_TIME - timeElapsed); // Al menos 2 segundos
-
-          console.log(`⏱️ Tiempo restante: ${timeRemaining}ms`);
-          promocionesActivas = await withTimeout(
-            globalPromise,
-            timeRemaining,
-            "Timeout cargando promociones globales"
-          );
-        } else {
-          // Hay permisos - intentar obtener ubicación rápidamente
-          setLocationPermissionGranted(true);
-          console.log("📍 Permisos concedidos, obteniendo ubicación...");
-
-          try {
-            const locationPromise = Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Low, // Cambiar a Low para ser más rápido
-              maximumAge: 120000, // Usar caché de hasta 2 minutos
-              timeout: 1500, // Timeout nativo de 1.5 segundos
-            });
-
-            const location = await withTimeout(
-              locationPromise,
-              2000,
-              "Timeout ubicación"
-            );
-            const { latitude, longitude } = location.coords;
-            console.log(`📍 Ubicación obtenida: ${latitude}, ${longitude}`);
-
-            // Intentar promociones por proximidad con timeout corto
-            const timeElapsed = Date.now() - startTime;
-            const timeRemaining = Math.max(
-              2000,
-              MAX_TOTAL_TIME - timeElapsed - 500
-            ); // Dejar 500ms de margen
-
-            try {
-              const promocionesPromise = getPromocionesActivasPorProximidad(
-                latitude,
-                longitude,
-                tipo,
-                null,
-                50
-              );
-
-              promocionesActivas = await withTimeout(
-                promocionesPromise,
-                timeRemaining,
-                "Timeout promociones por proximidad"
-              );
-            } catch (proximityError) {
-              console.log(
-                "⚠️ Error en promociones por proximidad, usando globales:",
-                proximityError
-              );
-              // Fallback inmediato a globales
-              const globalPromise = getPromocionesActivas(tipo);
-              const remainingTime = Math.max(
-                2000,
-                MAX_TOTAL_TIME - (Date.now() - startTime)
-              );
-              promocionesActivas = await withTimeout(
-                globalPromise,
-                remainingTime,
-                "Timeout globales (fallback)"
-              );
-            }
-          } catch (locationError) {
-            console.log(
-              "⚠️ Error obteniendo ubicación, usando promociones globales:",
-              locationError
-            );
-            setLocationPermissionGranted(false);
-            // Fallback inmediato a globales
-            const globalPromise = getPromocionesActivas(tipo);
-            const remainingTime = Math.max(
-              2000,
-              MAX_TOTAL_TIME - (Date.now() - startTime)
-            );
-            promocionesActivas = await withTimeout(
-              globalPromise,
-              remainingTime,
-              "Timeout globales (fallback)"
-            );
-          }
-        }
-      } catch (parallelError) {
-        console.error(
-          "⚠️ Error en operaciones paralelas, usando promociones globales:",
-          parallelError
+        console.log(`⏱️ [${functionId}] Tiempo restante para promociones globales: ${timeRemaining}ms`);
+        promocionesActivas = await withTimeout(
+          globalPromise,
+          timeRemaining,
+          "Timeout cargando promociones globales"
         );
-        setLocationPermissionGranted(false);
-        // Fallback final - intentar obtener solo usuario si falló todo
-        try {
-          const userResult = await withTimeout(
-            getCurrentUser(),
-            1000,
-            "Timeout usuario (fallback)"
-          );
-          tipo = userResult?.user?.tipo_usuario || null;
-          setTipoUsuario(tipo);
-        } catch (userError) {
-          console.log("⚠️ No se pudo obtener usuario:", userError);
-        }
-
-        // Intentar cargar promociones globales
-        try {
-          const globalPromise = getPromocionesActivas(tipo);
-          const remainingTime = Math.max(
-            2000,
-            MAX_TOTAL_TIME - (Date.now() - startTime)
-          );
-          promocionesActivas = await withTimeout(
-            globalPromise,
-            remainingTime,
-            "Timeout globales (fallback final)"
-          );
-        } catch (finalError: any) {
-          console.error("❌ Error final al cargar promociones:", finalError);
-          const errorMessage = finalError?.message || "Error desconocido al cargar promociones";
-          console.error("Mensaje de error:", errorMessage);
-          // Si todo falla, dejar array vacío para mostrar mensaje
-          promocionesActivas = [];
-          if (isMountedRef.current) {
-            setError(errorMessage);
+        console.log(`✅ [${functionId}] Promociones globales cargadas: ${promocionesActivas.length}`);
+        
+        // Si hay promociones, usarlas. Si no, intentar con ubicación (opcional)
+        if (promocionesActivas.length > 0) {
+          console.log(`✅ [${functionId}] Usando ${promocionesActivas.length} promociones globales`);
+        } else {
+          // Si no hay promociones globales, intentar con ubicación (opcional, en background)
+          console.log(`⚠️ [${functionId}] No hay promociones globales, intentando con ubicación...`);
+          
+          try {
+            const permissionsResult = await withTimeout(
+              Location.requestForegroundPermissionsAsync(),
+              2000,
+              "Timeout permisos"
+            );
+            
+            if (permissionsResult?.status === "granted") {
+              setLocationPermissionGranted(true);
+              console.log(`📍 [${functionId}] Permisos concedidos, obteniendo ubicación...`);
+              
+              try {
+                const location = await withTimeout(
+                  Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Low,
+                    maximumAge: 120000,
+                    timeout: 2000,
+                  }),
+                  3000,
+                  "Timeout ubicación"
+                );
+                
+                const { latitude, longitude } = location.coords;
+                console.log(`📍 [${functionId}] Ubicación obtenida: ${latitude}, ${longitude}`);
+                
+                // Intentar promociones por proximidad con el tiempo restante
+                const remainingTime = Math.max(2000, MAX_TOTAL_TIME - (Date.now() - startTime) - 1000);
+                const promocionesPromise = getPromocionesActivasPorProximidad(
+                  latitude,
+                  longitude,
+                  tipo,
+                  null,
+                  50
+                );
+                
+                promocionesActivas = await withTimeout(
+                  promocionesPromise,
+                  remainingTime,
+                  "Timeout promociones por proximidad"
+                );
+                console.log(`✅ [${functionId}] Promociones por proximidad cargadas: ${promocionesActivas.length}`);
+              } catch (locationError) {
+                console.log(`⚠️ [${functionId}] Error obteniendo ubicación:`, locationError);
+              }
+            }
+          } catch (permError) {
+            console.log(`⚠️ [${functionId}] Error obteniendo permisos:`, permError);
           }
         }
+      } catch (globalError) {
+        console.error(`❌ [${functionId}] Error cargando promociones globales:`, globalError);
+        promocionesActivas = [];
+      }
+
+      // Cancelar timeout global si terminamos exitosamente
+      if (globalTimeout) {
+        clearTimeout(globalTimeout);
+        globalTimeout = null;
       }
 
       const elapsedTime = Date.now() - startTime;
       console.log(
-        `⏱️ Promociones cargadas en ${elapsedTime}ms. Total: ${promocionesActivas.length}`
+        `⏱️ [${functionId}] Promociones cargadas en ${elapsedTime}ms. Total: ${promocionesActivas.length}`
       );
+      console.log(`🎁 [${functionId}] Promociones cargadas:`, promocionesActivas.slice(0, 3).map(p => ({ id: p.id, titulo: p.titulo })));
 
       // Solo actualizar estado si el componente está montado
       if (isMountedRef.current) {
         promocionesRef.current = promocionesActivas; // Actualizar referencia primero
+        console.log(`🎁 [${functionId}] Actualizando estado con ${promocionesActivas.length} promociones`);
+        lastRefreshTimeRef.current = Date.now(); // Actualizar timestamp de última actualización
         setPromociones(promocionesActivas);
         setCurrentIndex(0);
         carouselStartedRef.current = false; // Resetear flag cuando se cargan nuevas promociones
@@ -456,42 +499,58 @@ const PromocionesScreenComponent: React.FC = () => {
         }
       }
     } catch (error: any) {
-      console.error("🎁 ===== ERROR EN loadPromociones =====");
-      console.error("Error al cargar promociones:", error);
-      console.error("Tipo de error:", typeof error);
-      console.error("Error es Error?", error instanceof Error);
+      // Cancelar timeout global
+      if (globalTimeout) {
+        clearTimeout(globalTimeout);
+        globalTimeout = null;
+      }
+      
+      console.error(`🎁 ===== ERROR EN loadPromociones [${functionId}] =====`);
+      console.error(`Error [${functionId}]:`, error);
+      console.error(`Tipo de error [${functionId}]:`, typeof error);
+      console.error(`Error es Error? [${functionId}]:`, error instanceof Error);
       const elapsedTime = Date.now() - startTime;
-      console.error(`⏱️ Error después de ${elapsedTime}ms`);
-      console.error("Detalles del error:", JSON.stringify(error, null, 2));
-      console.error("Stack trace:", error?.stack);
+      console.error(`⏱️ [${functionId}] Error después de ${elapsedTime}ms`);
+      if (error?.message) {
+        console.error(`Mensaje [${functionId}]:`, error.message);
+      }
+      if (error?.stack) {
+        console.error(`Stack [${functionId}]:`, error.stack);
+      }
 
       if (isMountedRef.current) {
         const errorMessage = error?.message || "Error desconocido al cargar promociones";
+        console.error(`🎁 [${functionId}] Estableciendo error:`, errorMessage);
         setError(errorMessage);
+        hasLoadedRef.current = false; // Permitir reintento
         
-        // Si hubo error pero el tiempo fue largo, puede ser timeout - mostrar array vacío
-        if (error instanceof Error && error.message.includes("Timeout")) {
-          console.log("⏱️ Timeout alcanzado, mostrando estado vacío");
-          promocionesRef.current = [];
-          setPromociones([]);
-        } else {
-          // Para otros errores, también mostrar array vacío
-          promocionesRef.current = [];
-          setPromociones([]);
-          console.error("Error completo:", error);
-        }
+        // Siempre mostrar array vacío si hay error
+        promocionesRef.current = [];
+        setPromociones([]);
+        console.log(`⏱️ [${functionId}] Error procesado, mostrando estado vacío`);
       }
     } finally {
-      console.log("🎁 ===== FINALLY EJECUTADO =====");
-      console.log("🎁 isMountedRef.current:", isMountedRef.current);
+      // SIEMPRE cancelar timeout y asegurar que loading se ponga en false
+      if (globalTimeout) {
+        clearTimeout(globalTimeout);
+        globalTimeout = null;
+      }
+      
+      console.log(`🎁 ===== FINALLY EJECUTADO [${functionId}] =====`);
+      console.log(`🎁 [${functionId}] isMountedRef.current:`, isMountedRef.current);
+      
       if (isMountedRef.current) {
-        console.log("🎁 setLoading(false) ejecutado");
+        console.log(`🎁 [${functionId}] setLoading(false) ejecutado`);
         setLoading(false);
         const totalTime = Date.now() - startTime;
-        console.log(`✅ Carga de promociones completada en ${totalTime}ms`);
-        console.log("🎁 Estado final:", { loading: false, promocionesCount: promociones.length });
+        console.log(`✅ [${functionId}] Carga de promociones completada en ${totalTime}ms`);
+        console.log(`🎁 [${functionId}] Estado final:`, { 
+          loading: false, 
+          promocionesCount: promocionesRef.current.length,
+          error 
+        });
       } else {
-        console.log("🎁 ⚠️ Componente desmontado, no actualizando estado");
+        console.log(`🎁 [${functionId}] ⚠️ Componente desmontado, no actualizando estado`);
       }
     }
   };

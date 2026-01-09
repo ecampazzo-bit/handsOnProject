@@ -39,10 +39,12 @@ export const HomeScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      // Recargar contador y usuario cada vez que se enfoca la pantalla
-      loadNotificationCount();
-      loadUser();
-    }, [])
+      // Solo recargar contador de notificaciones cuando se enfoca la pantalla
+      // No recargar usuario para evitar re-renders innecesarios
+      if (user) {
+        loadNotificationCount();
+      }
+    }, [user])
   );
 
   const loadNotificationCount = async () => {
@@ -124,8 +126,11 @@ export const HomeScreen: React.FC = () => {
     try {
       const { user: currentUser, error } = await getCurrentUser();
       if (error || !currentUser) {
-        // Si no hay usuario, volver al login
-        navigation.replace("Login");
+        // No navegar inmediatamente - dejar que AuthNavigator maneje la navegación
+        // para evitar ciclos de navegación que causan parpadeos
+        console.log("HomeScreen: No se encontró usuario, esperando que AuthNavigator maneje la navegación");
+        setUser(null);
+        setLoading(false);
         return;
       }
       setUser(currentUser);
@@ -134,10 +139,12 @@ export const HomeScreen: React.FC = () => {
       setActiveTab("promociones");
 
       // Cargar contador de notificaciones después de cargar el usuario
-      loadNotificationCount();
+      if (currentUser) {
+        loadNotificationCount();
+      }
     } catch (error) {
       console.error("Error al cargar usuario:", error);
-      navigation.replace("Login");
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -371,7 +378,11 @@ export const HomeScreen: React.FC = () => {
       {/* Contenido según tipo de usuario */}
       <View style={styles.content}>
         {/* Promociones Especiales - Visible para todos */}
-        {activeTab === "promociones" && <PromocionesScreen />}
+        {activeTab === "promociones" && (
+          <View style={{ flex: 1 }}>
+            <PromocionesScreen />
+          </View>
+        )}
 
         {isCliente && (
           <>

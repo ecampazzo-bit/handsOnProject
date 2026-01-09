@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { RootStackParamList } from "../types/navigation";
@@ -28,6 +28,8 @@ export const AuthNavigator: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
+  const navigationHandledRef = useRef(false); // Flag para evitar múltiples navegaciones
+  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -127,10 +129,11 @@ export const AuthNavigator: React.FC = () => {
       
       if (!mounted) return;
 
+      // Solo manejar navegación una vez por cambio de estado
+      const shouldHandleNavigation = !navigationHandledRef.current || event === "SIGNED_OUT";
+
       if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         if (session?.user) {
-          console.log("Sesión restaurada/iniciada, navegando a Home");
-          
           // Guardar sesión en AsyncStorage para persistencia
           try {
             await AsyncStorage.setItem(
@@ -142,14 +145,38 @@ export const AuthNavigator: React.FC = () => {
             console.error("Error al guardar sesión:", error);
           }
           
-          setIsAuthenticated(true);
+          // Actualizar estado solo si cambió - evitar re-renders innecesarios
+          setIsAuthenticated((prev) => {
+            if (prev === true) {
+              // Ya está autenticado, no hacer nada
+              return prev;
+            }
+            return true;
+          });
           setIsLoading(false);
-          // Navegar a Home cuando hay sesión
-          if (navigationRef.current?.isReady()) {
-            navigationRef.current.reset({
-              index: 0,
-              routes: [{ name: "Home" }],
-            });
+          
+          // Navegar solo si es necesario y solo una vez
+          if (shouldHandleNavigation && navigationRef.current?.isReady()) {
+            // Limpiar timeout anterior si existe
+            if (navigationTimeoutRef.current) {
+              clearTimeout(navigationTimeoutRef.current);
+            }
+            
+            navigationHandledRef.current = true;
+            
+            // Usar setTimeout con un delay más largo para evitar parpadeos
+            navigationTimeoutRef.current = setTimeout(() => {
+              if (navigationRef.current?.isReady() && mounted) {
+                try {
+                  navigationRef.current.reset({
+                    index: 0,
+                    routes: [{ name: "Home" }],
+                  });
+                } catch (error) {
+                  console.error("Error al navegar a Home:", error);
+                }
+              }
+            }, 300); // Aumentado a 300ms para dar tiempo a que se estabilice
           }
         } else {
           // Si no hay sesión después de INITIAL_SESSION, el usuario no está autenticado
@@ -157,6 +184,7 @@ export const AuthNavigator: React.FC = () => {
             console.log("INITIAL_SESSION sin sesión, usuario no autenticado");
             setIsAuthenticated(false);
             setIsLoading(false);
+            navigationHandledRef.current = false;
           }
         }
       } else if (event === "SIGNED_OUT") {
@@ -172,18 +200,38 @@ export const AuthNavigator: React.FC = () => {
         
         setIsAuthenticated(false);
         setIsLoading(false);
+        navigationHandledRef.current = false;
+        
+        // Limpiar timeout anterior si existe
+        if (navigationTimeoutRef.current) {
+          clearTimeout(navigationTimeoutRef.current);
+        }
+        
         // Navegar a Login cuando el usuario cierra sesión
         if (navigationRef.current?.isReady()) {
-          navigationRef.current.reset({
-            index: 0,
-            routes: [{ name: "Login" }],
-          });
+          // Usar setTimeout para evitar parpadeos
+          navigationTimeoutRef.current = setTimeout(() => {
+            if (navigationRef.current?.isReady() && mounted) {
+              try {
+                navigationRef.current.reset({
+                  index: 0,
+                  routes: [{ name: "Login" }],
+                });
+              } catch (error) {
+                console.error("Error al navegar a Login:", error);
+              }
+            }
+          }, 300);
         }
       }
     });
 
     return () => {
       mounted = false;
+      navigationHandledRef.current = false;
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
       subscription.unsubscribe();
     };
   }, []);
@@ -200,10 +248,14 @@ export const AuthNavigator: React.FC = () => {
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
-        initialRouteName={isAuthenticated ? "Home" : "Login"}
+        initialRouteName={isAuthenticated === true ? "Home" : "Login"}
         screenOptions={{
           headerShown: false,
           cardStyle: { backgroundColor: "#FFFFFF" },
+          animationEnabled: true,
+          animationTypeForReplace: isAuthenticated ? "push" : "pop",
+          gestureEnabled: false, // Deshabilitar gestos para evitar navegación accidental
+          detachInactiveScreens: true, // Optimización para evitar problemas de rendimiento
         }}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
