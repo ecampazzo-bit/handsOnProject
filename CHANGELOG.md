@@ -48,11 +48,22 @@
 - **Nueva tabla `usuarios_eliminados`**: Tabla separada para mantener historial de usuarios eliminados
 - **Función `procesar_eliminacion_cuenta` actualizada**: Ahora elimina de `public.users` y `auth.users`, y guarda copia en `usuarios_eliminados` antes de eliminar
 - **Hard delete completo**: Los usuarios se eliminan físicamente de ambas tablas, permitiendo re-registro
+- **Corrección de foreign key constraint**: La foreign key `usuarios_eliminados_solicitud_eliminacion_id_fkey` ahora permite actualizaciones con `ON UPDATE CASCADE` y `ON DELETE SET NULL`
 
 #### Frontend
 - **Interfaz `User` actualizada**: Nuevos campos `es_eliminado`, `fecha_eliminacion` para manejar usuarios eliminados
 - **Lógica de carga de usuarios**: El dashboard ahora carga usuarios activos desde `users` y usuarios eliminados desde `usuarios_eliminados`
 - **Filtrado mejorado**: Filtros actualizados para distinguir entre usuarios activos, inactivos y eliminados
+
+### 🐛 Correcciones de Bugs
+
+#### Aplicación Móvil
+- **Flujo de registro corregido**: Después del registro exitoso, la aplicación ahora cierra la sesión y vuelve a la pantalla de login, requiriendo que el usuario verifique su email antes de poder usar la aplicación
+- **Pantalla en blanco después del registro**: Corregido problema donde la pantalla quedaba en blanco después del registro en iPhone
+
+#### Aplicación Web
+- **Error de build en Next.js**: Agregado Suspense boundary para `useSearchParams()` en `/eliminar-cuenta/login/page.tsx` para cumplir con los requisitos de Next.js 16
+- **Error de foreign key en eliminación de cuentas**: Corregido error que impedía procesar eliminaciones debido a la restricción de foreign key que no permitía actualizar `solicitudes_eliminacion`
 
 ---
 
