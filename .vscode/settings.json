@@ -14,6 +14,7 @@
   // Habilita enlaces en la terminal
   "terminal.integrated.enablePersistentSessions": true,
   "java.compile.nullAnalysis.mode": "disabled",
+  "java.configuration.updateBuildConfiguration": "automatic",
   
   // Nota: Para usar el navegador embebido de Cursor:
   // 1. Haz clic en una URL con Ctrl/Cmd+clic (o Cmd+clic en Mac)

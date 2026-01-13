@@ -717,20 +717,53 @@ eas build --platform ios --profile production
 1. El build ya debería estar en App Store Connect
 2. Ve a: **TestFlight** → **iOS Builds** para verificar
 
-### 7.10. Configurar TestFlight (Opcional pero Recomendado)
+### 7.10. Configurar Privacidad de la App (OBLIGATORIO)
+
+**⚠️ IMPORTANTE**: Esta sección es **OBLIGATORIA** antes de poder enviar la app a revisión.
+
+1. Ve a: **Privacidad de la app** (App Privacy) en App Store Connect
+2. Haz clic en **"Configurar"** o **"Comencemos"**
+3. Declara todos los tipos de datos que recopila tu app
+
+**Para una guía completa y detallada sobre cómo completar esta sección**, consulta:
+- 📄 **`scripts/CONFIGURAR_PRIVACIDAD_APP_STORE.md`** - Guía completa con todas las declaraciones necesarias
+
+**Resumen rápido de datos a declarar:**
+- ✅ Información de contacto (Nombre, Email, Teléfono)
+- ✅ Identificadores (ID de Usuario, ID de Dispositivo)
+- ✅ Ubicación (Ubicación precisa)
+- ✅ Fotos/Videos (Fotos de perfil, portfolios)
+- ✅ Archivos (Certificaciones profesionales)
+- ✅ Información de uso (Calificaciones, mensajes, solicitudes)
+- ✅ Datos de diagnóstico (Logs, métricas)
+
+**Terceros con los que se comparten datos:**
+- ✅ Supabase (Infraestructura, backend, almacenamiento)
+- ✅ Twilio (Comunicación, códigos de verificación)
+
+**⚠️ IMPORTANTE**: Para todas las preguntas sobre seguimiento (tracking), la respuesta es **NO**.
+
+4. Revisa y verifica todas las declaraciones
+5. Asegúrate de que la política de privacidad esté publicada y accesible
+6. Guarda los cambios
+
+**Nota**: Si no completas esta sección, verás un mensaje de error indicando que es obligatorio antes de enviar a revisión.
+
+### 7.11. Configurar TestFlight (Opcional pero Recomendado)
 
 1. Ve a: **TestFlight** en App Store Connect
 2. Agrega testers internos o externos
 3. Prueba la app antes de publicar
 
-### 7.11. Enviar para Revisión
+### 7.12. Enviar para Revisión
 
 1. Ve a: **App Store** → **Versión de la app**
 2. Completa todos los requisitos:
    - [ ] Información de la app completa
    - [ ] Store listing completo
    - [ ] Screenshots subidos
-   - [ ] Política de privacidad configurada
+   - [ ] Política de privacidad configurada (URL pública)
+   - [ ] **Privacidad de la app completada** (OBLIGATORIO)
    - [ ] Build subido y procesado
    - [ ] Clasificación de contenido completa
 
@@ -738,7 +771,7 @@ eas build --platform ios --profile production
 
 4. Tiempo de revisión: 1-7 días (generalmente 1-3 días)
 
-### 7.12. Checklist de Apple App Store
+### 7.13. Checklist de Apple App Store
 
 - [ ] Cuenta de desarrollador creada ($99 USD/año)
 - [ ] Certificados y perfiles configurados
@@ -747,7 +780,8 @@ eas build --platform ios --profile production
 - [ ] Bundle ID configurado correctamente
 - [ ] Store listing completo
 - [ ] Screenshots y assets subidos
-- [ ] Política de privacidad publicada
+- [ ] Política de privacidad publicada (URL pública)
+- [ ] **Privacidad de la app completada** (OBLIGATORIO)
 - [ ] Clasificación de contenido completa
 - [ ] Build subido y procesado
 - [ ] App enviada para revisión
@@ -817,6 +851,8 @@ eas build --platform ios --profile production
 - **Migración Twilio**: `scripts/MIGRAR_TWILIO_PRODUCCION.md`
 - **Resumen Migración**: `scripts/RESUMEN_MIGRACION_PRODUCCION.md`
 - **Build Android**: `mobile/BUILD_APK.md`
+- **Configurar Privacidad App Store**: `scripts/CONFIGURAR_PRIVACIDAD_APP_STORE.md` ⚠️ **OBLIGATORIO**
+- **Texto Promocional Apple Store**: `scripts/TEXTO_PROMOCIONAL_APPLE_STORE.md`
 
 ### Enlaces Útiles
 
