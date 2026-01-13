@@ -18,7 +18,7 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as Location from "expo-location";
-import { signUp, getCurrentUser } from "../services/authService";
+import { signUp, getCurrentUser, signOut } from "../services/authService";
 import {
   registerStep1Schema,
   registerStep2Schema,
@@ -563,30 +563,24 @@ export const RegisterScreen: React.FC = () => {
         //   }
         // }
 
-        // Si el usuario es prestador o ambos, debe seleccionar servicios
-        if (
-          user.tipo_usuario === "prestador" ||
-          user.tipo_usuario === "ambos"
-        ) {
-          // Esperar para asegurar que la sesión esté completamente establecida
-          console.log(
-            "Registro exitoso, esperando antes de navegar a ServiceSelection..."
-          );
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-
-          console.log("Navegando a ServiceSelection");
-          navigation.navigate("ServiceSelection", { userId: user.id });
-        } else {
-          Alert.alert("Éxito", "Cuenta creada exitosamente", [
+        // Cerrar sesión después del registro para que el usuario verifique su email
+        // El usuario debe verificar su email antes de poder usar la app
+        console.log("Registro exitoso, cerrando sesión para volver al login...");
+        await signOut();
+        
+        Alert.alert(
+          "Registro exitoso",
+          "Tu cuenta ha sido creada. Por favor, verifica tu email antes de iniciar sesión.",
+          [
             {
               text: "OK",
               onPress: () => {
-                // Navegar a HomeScreen después de registro exitoso
-                navigation.navigate("Home");
+                // Navegar de vuelta al login
+                navigation.navigate("Login");
               },
             },
-          ]);
-        }
+          ]
+        );
       }
     } catch (error) {
       console.error("Error en handleFinalSubmit:", error);
@@ -879,7 +873,7 @@ export const RegisterScreen: React.FC = () => {
           <View
             style={[styles.checkbox, aceptaTerminos && styles.checkboxChecked]}
           >
-            {aceptaTerminos && <Text style={styles.checkmark}>✓</Text>}
+            {aceptaTerminos && <Text style={styles.checkboxCheckmark}>✓</Text>}
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", flex: 1 }}>
             <Text style={styles.checkboxLabel}>Acepto los </Text>
@@ -1190,6 +1184,12 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  checkboxCheckmark: {
+    fontSize: 16,
+    color: colors.white,
+    fontWeight: "bold",
+    lineHeight: 20,
   },
   checkboxLabel: {
     fontSize: 14,

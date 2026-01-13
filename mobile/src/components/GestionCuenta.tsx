@@ -15,6 +15,7 @@ import {
   Modal,
   FlatList,
   Platform,
+  Linking,
 } from "react-native";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { supabase } from "../services/supabaseClient";
@@ -81,7 +82,6 @@ interface PrestadorData {
   años_experiencia: number | null;
   tiene_matricula: boolean;
   numero_matricula: string | null;
-  documentos_verificados: boolean;
   radio_cobertura_km: number | null;
   disponibilidad_inmediata: boolean;
   precio_minimo: number | null;
@@ -125,7 +125,6 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
     años_experiencia: null,
     tiene_matricula: false,
     numero_matricula: null,
-    documentos_verificados: false,
     radio_cobertura_km: null,
     disponibilidad_inmediata: false,
     precio_minimo: null,
@@ -196,7 +195,6 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
           años_experiencia: prestador.años_experiencia || null,
           tiene_matricula: prestador.tiene_matricula || false,
           numero_matricula: prestador.numero_matricula || null,
-          documentos_verificados: prestador.documentos_verificados || false,
           radio_cobertura_km: prestador.radio_cobertura_km || null,
           disponibilidad_inmediata: prestador.disponibilidad_inmediata || false,
           precio_minimo: prestador.precio_minimo || null,
@@ -678,7 +676,6 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
             : null,
           tiene_matricula: formData.tiene_matricula,
           numero_matricula: formData.numero_matricula || null,
-          documentos_verificados: formData.documentos_verificados,
           radio_cobertura_km: formData.radio_cobertura_km
             ? parseInt(String(formData.radio_cobertura_km))
             : null,
@@ -1140,24 +1137,6 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
           </View>
 
           <View style={styles.section}>
-            <View style={styles.switchRow}>
-              <Text style={styles.label}>Documentos Verificados</Text>
-              <Switch
-                value={formData.documentos_verificados}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, documentos_verificados: value })
-                }
-                trackColor={{ false: colors.border, true: colors.primaryLight }}
-                thumbColor={
-                  formData.documentos_verificados
-                    ? colors.primary
-                    : colors.textLight
-                }
-              />
-            </View>
-          </View>
-
-          <View style={styles.section}>
             <Text style={styles.label}>Radio de Cobertura (km)</Text>
             <TextInput
               style={styles.input}
@@ -1260,6 +1239,29 @@ export const GestionCuenta: React.FC<GestionCuentaProps> = ({
               onPress={handleSave}
               loading={saving}
             />
+          </View>
+
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={async () => {
+                try {
+                  const url = "https://ofisi.ar/eliminar-cuenta";
+                  const canOpen = await Linking.canOpenURL(url);
+                  if (canOpen) {
+                    await Linking.openURL(url);
+                  } else {
+                    Alert.alert("Error", "No se puede abrir el enlace");
+                  }
+                } catch (error) {
+                  Alert.alert("Error", "Ocurrió un error al abrir el enlace");
+                }
+              }}
+            >
+              <Text style={styles.deleteAccountButtonText}>
+                Eliminar mi cuenta
+              </Text>
+            </TouchableOpacity>
           </View>
         </>
       )}
@@ -1613,6 +1615,18 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: 16,
     marginBottom: 32,
+  },
+  deleteAccountButton: {
+    backgroundColor: colors.error,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  deleteAccountButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "600",
   },
   convertSection: {
     backgroundColor: colors.backgroundSecondary,
