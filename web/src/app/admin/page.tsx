@@ -16,6 +16,9 @@ interface User {
   activo: boolean
   verificado: boolean
   created_at: string
+  eliminado_at?: string | null
+  fecha_eliminacion?: string | null
+  es_eliminado?: boolean
   prestador_id?: number
 }
 
@@ -27,11 +30,12 @@ export default function AdminDashboard() {
     total: 0,
     activos: 0,
     inactivos: 0,
+    eliminados: 0,
     prestadores: 0,
     clientes: 0,
   })
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'activos' | 'inactivos'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'activos' | 'inactivos' | 'eliminados'>('all')
   const [filterUserType, setFilterUserType] = useState<'all' | 'cliente' | 'prestador' | 'ambos'>('all')
 
   useEffect(() => {
@@ -42,7 +46,7 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
       
-      // Intentar primero con la función que hace bypass de RLS
+      // Cargar usuarios activos desde users
       let usersData = null;
       let usersError = null;
       
@@ -76,51 +80,67 @@ export default function AdminDashboard() {
         usersError = err;
       }
 
-      if (usersError) {
+      // Cargar usuarios eliminados desde usuarios_eliminados
+      const { data: deletedUsersData, error: deletedUsersError } = await supabaseAdmin
+        .from('usuarios_eliminados')
+        .select('*')
+        .order('fecha_eliminacion', { ascending: false });
+
+      if (usersError && deletedUsersError) {
         throw usersError
       }
 
-      if (!usersData || usersData.length === 0) {
-        setUsers([])
-        setStats({ total: 0, activos: 0, inactivos: 0, prestadores: 0, clientes: 0 })
-        return
-      }
-
-      // Obtener IDs de prestadores
-      const { data: prestadoresData, error: prestadoresError } = await supabaseAdmin
+      // Obtener IDs de prestadores para usuarios activos
+      const { data: prestadoresData } = await supabaseAdmin
         .from('prestadores')
         .select('id, usuario_id')
-
-      if (prestadoresError) {
-      }
 
       const prestadoresMap = new Map(
         prestadoresData?.map(p => [p.usuario_id, p.id]) || []
       )
 
-      const usersWithPrestador = (usersData || []).map((user: any) => ({
+      // Combinar usuarios activos con usuarios eliminados
+      const activeUsers = (usersData || []).map((user: any) => ({
         ...user,
         prestador_id: prestadoresMap.get(user.id),
+        es_eliminado: false,
       }))
 
-      setUsers(usersWithPrestador as User[])
+      const deletedUsers = (deletedUsersData || []).map((user: any) => ({
+        id: user.id,
+        email: user.email,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        telefono: user.telefono,
+        tipo_usuario: user.tipo_usuario,
+        activo: user.activo,
+        verificado: user.verificado,
+        created_at: user.fecha_registro_original,
+        fecha_eliminacion: user.fecha_eliminacion,
+        es_eliminado: true,
+      }))
+
+      const allUsers = [...activeUsers, ...deletedUsers]
+      setUsers(allUsers as User[])
 
       // Calcular estadísticas
-      const total = usersWithPrestador.length
-      const activos = usersWithPrestador.filter((u: any) => u.activo).length
-      const inactivos = total - activos
-      const prestadores = usersWithPrestador.filter((u: any) => 
+      const total = allUsers.length
+      const eliminados = deletedUsers.length
+      const activos = activeUsers.filter((u: any) => u.activo).length
+      const inactivos = activeUsers.filter((u: any) => !u.activo).length
+      // Prestadores y clientes incluyen todos (activos, inactivos y eliminados) para el total histórico
+      const prestadores = allUsers.filter((u: any) => 
         u.tipo_usuario === 'prestador' || u.tipo_usuario === 'ambos'
       ).length
-      const clientes = usersWithPrestador.filter((u: any) => 
+      const clientes = allUsers.filter((u: any) => 
         u.tipo_usuario === 'cliente' || u.tipo_usuario === 'ambos'
       ).length
 
-      setStats({ total, activos, inactivos, prestadores, clientes })
+      setStats({ total, activos, inactivos, eliminados, prestadores, clientes })
     } catch (error: any) {
       alert(`Error al cargar usuarios: ${error?.message || 'Error desconocido'}`)
       setUsers([])
-      setStats({ total: 0, activos: 0, inactivos: 0, prestadores: 0, clientes: 0 })
+        setStats({ total: 0, activos: 0, inactivos: 0, eliminados: 0, prestadores: 0, clientes: 0 })
     } finally {
       setLoading(false)
     }
@@ -198,8 +218,9 @@ export default function AdminDashboard() {
     
     const matchesStatus = 
       filterType === 'all' ||
-      (filterType === 'activos' && user.activo) ||
-      (filterType === 'inactivos' && !user.activo)
+      (filterType === 'activos' && user.activo && !user.es_eliminado) ||
+      (filterType === 'inactivos' && !user.activo && !user.es_eliminado) ||
+      (filterType === 'eliminados' && user.es_eliminado)
     
     const matchesUserType =
       filterUserType === 'all' ||
@@ -242,6 +263,12 @@ export default function AdminDashboard() {
             >
               Gestión de Promociones
             </Link>
+            <Link
+              href="/admin/eliminaciones"
+              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+            >
+              Solicitudes de Eliminación
+            </Link>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
@@ -254,7 +281,7 @@ export default function AdminDashboard() {
 
       <main className="container mx-auto px-4 py-8">
         {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-sm font-medium text-gray-600 mb-2">Total Usuarios</h2>
             <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
@@ -266,6 +293,10 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-sm font-medium text-gray-600 mb-2">Inactivos</h2>
             <p className="text-3xl font-bold text-red-600">{stats.inactivos}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-sm font-medium text-gray-600 mb-2">Eliminados</h2>
+            <p className="text-3xl font-bold text-gray-600">{stats.eliminados}</p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-sm font-medium text-gray-600 mb-2">Prestadores</h2>
@@ -304,6 +335,7 @@ export default function AdminDashboard() {
                 <option value="all">Todos</option>
                 <option value="activos">Activos</option>
                 <option value="inactivos">Inactivos</option>
+                <option value="eliminados">Eliminados</option>
               </select>
             </div>
             <div>
@@ -368,7 +400,7 @@ export default function AdminDashboard() {
                     </tr>
                   ) : (
                     filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
+                      <tr key={user.id} className={`hover:bg-gray-50 ${user.es_eliminado ? 'opacity-75 bg-gray-50' : ''}`}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex flex-col">
                             <div className="text-sm font-medium text-gray-900">
@@ -390,13 +422,19 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.activo
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {user.activo ? 'Activo' : 'Inactivo'}
-                          </span>
+                          {user.es_eliminado ? (
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-800">
+                              Eliminado
+                            </span>
+                          ) : (
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                              user.activo
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {user.activo ? 'Activo' : 'Inactivo'}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -408,23 +446,40 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(user.created_at).toLocaleDateString('es-AR', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
+                          <div>
+                            {new Date(user.created_at).toLocaleDateString('es-AR', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </div>
+                          {user.es_eliminado && user.fecha_eliminacion && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              Eliminado: {new Date(user.fecha_eliminacion).toLocaleDateString('es-AR', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => toggleUserStatus(user.id, user.activo)}
-                            className={`px-4 py-2 rounded-lg transition-colors ${
-                              user.activo
-                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
-                            }`}
-                          >
-                            {user.activo ? 'Desactivar' : 'Activar'}
-                          </button>
+                          {user.es_eliminado ? (
+                            <span className="text-gray-500 text-sm">
+                              -
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => toggleUserStatus(user.id, user.activo)}
+                              className={`px-4 py-2 rounded-lg transition-colors ${
+                                user.activo
+                                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+                              }`}
+                            >
+                              {user.activo ? 'Desactivar' : 'Activar'}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

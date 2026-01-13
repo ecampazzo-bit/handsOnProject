@@ -1,5 +1,61 @@
 # Changelog
 
+## [Versión 1.4.0] - 2026-01-13
+
+### ✨ Nuevas Funcionalidades
+
+#### Sistema de Eliminación de Cuentas con Hard Delete
+- **Implementación de hard delete**: Los usuarios ahora se eliminan físicamente de la base de datos, permitiendo re-registro con el mismo email
+- **Tabla de historial de usuarios eliminados**: Nueva tabla `usuarios_eliminados` que mantiene un registro histórico de todos los usuarios eliminados
+- **Eliminación completa**: Los usuarios se eliminan tanto de `public.users` como de `auth.users`, permitiendo re-registro inmediato
+- **Dashboard actualizado**: El dashboard de administración ahora muestra usuarios eliminados desde la tabla separada `usuarios_eliminados`
+- **Filtro de usuarios eliminados**: Nuevo filtro en el dashboard para visualizar usuarios eliminados
+- **Contador de eliminados**: Nueva estadística en el dashboard que muestra la cantidad de usuarios eliminados
+
+#### Período de Gracia para Eliminación de Cuentas
+- **Sistema de solicitudes de eliminación**: Los usuarios ahora solicitan la eliminación en lugar de eliminarse inmediatamente
+- **Período de gracia de 60 días**: Las solicitudes de eliminación se procesan después de 60 días por cuestiones legales y de seguridad
+- **Gestión administrativa**: Nueva página de administración para gestionar solicitudes de eliminación pendientes
+- **Información actualizada**: La página de eliminación de cuenta ahora explica claramente el proceso y el período de gracia
+
+#### Login de Usuarios para Eliminación de Cuenta
+- **Página de login dedicada**: Nueva página `/eliminar-cuenta/login` para que usuarios normales puedan autenticarse antes de eliminar su cuenta
+- **Flujo separado del login administrativo**: Los usuarios normales no necesitan usar el login de administrador para eliminar su cuenta
+
+### 🎨 Mejoras de UI/UX
+
+#### Dashboard de Administración
+- **Visualización mejorada de usuarios eliminados**: Los usuarios eliminados se muestran con estilo diferenciado (opacidad reducida, fondo gris)
+- **Información de eliminación**: Muestra la fecha de eliminación junto con la fecha de registro original
+- **Botones deshabilitados para eliminados**: Los botones de activar/desactivar no están disponibles para usuarios eliminados
+- **Estadísticas actualizadas**: Los contadores ahora distinguen correctamente entre usuarios activos, inactivos y eliminados
+
+#### Página de Eliminación de Cuenta
+- **Información clara del proceso**: Mensajes actualizados que explican el período de gracia de 60 días
+- **Mensajes de éxito mejorados**: Información sobre la fecha programada de eliminación y opción de cancelar
+- **Navegación mejorada**: Link actualizado para que los usuarios no autenticados accedan a un login apropiado
+
+### 📄 Documentación
+
+#### Términos y Condiciones
+- **Actualización de sección de terminación**: Detalles completos sobre el período de gracia de 60 días para eliminación de cuentas
+- **Información legal**: Aclaraciones sobre retención de datos y efectos de la terminación
+- **Transparencia**: Los usuarios ahora tienen información clara sobre el proceso de eliminación
+
+### 🔧 Cambios Técnicos
+
+#### Base de Datos
+- **Nueva tabla `usuarios_eliminados`**: Tabla separada para mantener historial de usuarios eliminados
+- **Función `procesar_eliminacion_cuenta` actualizada**: Ahora elimina de `public.users` y `auth.users`, y guarda copia en `usuarios_eliminados` antes de eliminar
+- **Hard delete completo**: Los usuarios se eliminan físicamente de ambas tablas, permitiendo re-registro
+
+#### Frontend
+- **Interfaz `User` actualizada**: Nuevos campos `es_eliminado`, `fecha_eliminacion` para manejar usuarios eliminados
+- **Lógica de carga de usuarios**: El dashboard ahora carga usuarios activos desde `users` y usuarios eliminados desde `usuarios_eliminados`
+- **Filtrado mejorado**: Filtros actualizados para distinguir entre usuarios activos, inactivos y eliminados
+
+---
+
 ## [Versión 1.3.0] - 2025-01-05
 
 ### ✨ Nuevas Funcionalidades

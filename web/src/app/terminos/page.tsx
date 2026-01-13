@@ -462,12 +462,177 @@ export default function TerminosPage() {
             <h2 className="text-3xl font-bold mb-4 text-gray-900">
               10. TERMINACIÓN
             </h2>
+
+            <h3 className="text-2xl font-semibold mb-3 text-gray-800">
+              10.1. Terminación por el Usuario
+            </h3>
             <p className="text-gray-700">
-              Puede terminar su cuenta en cualquier momento. Nos reservamos el
-              derecho de suspender o terminar su acceso a la Aplicación en
-              cualquier momento, con o sin causa, por cualquier motivo,
-              incluyendo violación de estos Términos.
+              Puede solicitar la eliminación de su cuenta en cualquier momento a
+              través de la opción correspondiente en la Aplicación o
+              contactándonos directamente.
             </p>
+
+            <p className="text-gray-700 mt-4">
+              <strong className="text-gray-900">
+                Proceso de Eliminación de Cuenta:
+              </strong>
+            </p>
+            <p className="text-gray-700">
+              Cuando solicite la eliminación de su cuenta:
+            </p>
+            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+              <li>
+                Su solicitud será enviada al equipo de administración para su
+                revisión
+              </li>
+              <li>
+                La eliminación definitiva de su cuenta se programará para{" "}
+                <strong>60 días</strong> después de la fecha de su solicitud
+              </li>
+              <li>
+                Este período de gracia de 60 días se establece por cuestiones
+                legales y de seguridad, permitiendo:
+              </li>
+            </ul>
+            <ul className="list-disc pl-12 space-y-2 text-gray-700">
+              <li>La resolución de posibles disputas pendientes</li>
+              <li>La finalización de transacciones en curso</li>
+              <li>
+                El cumplimiento de obligaciones legales y regulatorias
+              </li>
+              <li>La protección de datos y seguridad del sistema</li>
+            </ul>
+
+            <p className="text-gray-700 mt-4">
+              <strong className="text-gray-900">
+                Durante el Período de Gracia:
+              </strong>
+            </p>
+            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+              <li>
+                Puede continuar utilizando su cuenta normalmente hasta la fecha
+                programada de eliminación
+              </li>
+              <li>
+                Puede cancelar su solicitud de eliminación en cualquier momento
+                antes de la fecha programada
+              </li>
+              <li>
+                Recibirá notificaciones sobre el estado de su solicitud y la
+                fecha programada de eliminación
+              </li>
+              <li>
+                Su cuenta permanecerá activa y accesible hasta la fecha de
+                eliminación programada
+              </li>
+            </ul>
+
+            <p className="text-gray-700 mt-4">
+              <strong className="text-gray-900">
+                Después de la Eliminación:
+              </strong>
+            </p>
+            <p className="text-gray-700">
+              Una vez procesada la eliminación de su cuenta (después de los 60
+              días):
+            </p>
+            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+              <li>
+                Su cuenta y todos los datos asociados serán eliminados
+                permanentemente de nuestros sistemas
+              </li>
+              <li>
+                Se eliminarán todos sus datos personales, historial de trabajos,
+                mensajes, calificaciones y cualquier otra información relacionada
+              </li>
+              <li>Esta acción es permanente e irreversible</li>
+              <li>
+                No podrá recuperar su cuenta ni los datos asociados después de
+                la eliminación
+              </li>
+            </ul>
+
+            <p className="text-gray-700 mt-4">
+              <strong className="text-gray-900">
+                Derecho de Cancelación:
+              </strong>
+            </p>
+            <p className="text-gray-700">
+              Usted tiene el derecho de cancelar su solicitud de eliminación en
+              cualquier momento antes de la fecha programada de eliminación.
+              Puede hacerlo a través de la Aplicación o contactándonos
+              directamente.
+            </p>
+
+            <h3 className="text-2xl font-semibold mb-3 mt-6 text-gray-800">
+              10.2. Terminación por la Compañía
+            </h3>
+            <p className="text-gray-700">
+              Nos reservamos el derecho de suspender o terminar su acceso a la
+              Aplicación en cualquier momento, con o sin causa, con o sin previo
+              aviso, por cualquier motivo, incluyendo pero no limitado a:
+            </p>
+            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+              <li>Violación de estos Términos</li>
+              <li>Uso fraudulento o ilegal de la Aplicación</li>
+              <li>
+                Actividades que dañen o perjudiquen a otros usuarios o a la
+                Compañía
+              </li>
+              <li>Inactividad prolongada de la cuenta</li>
+            </ul>
+
+            <h3 className="text-2xl font-semibold mb-3 mt-6 text-gray-800">
+              10.3. Efectos de la Terminación
+            </h3>
+            <p className="text-gray-700">
+              <strong className="text-gray-900">
+                Al solicitar la terminación de su cuenta:
+              </strong>
+            </p>
+            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+              <li>
+                Su solicitud será procesada según el procedimiento descrito en
+                la sección 10.1
+              </li>
+              <li>
+                Su cuenta permanecerá activa durante el período de gracia de 60
+                días
+              </li>
+              <li>
+                Puede cancelar su solicitud en cualquier momento antes de la
+                fecha programada de eliminación
+              </li>
+            </ul>
+
+            <p className="text-gray-700 mt-4">
+              <strong className="text-gray-900">
+                Al procesarse la eliminación definitiva (después de 60 días):
+              </strong>
+            </p>
+            <ul className="list-disc pl-6 space-y-2 text-gray-700">
+              <li>
+                Su derecho a utilizar la Aplicación cesará permanentemente
+              </li>
+              <li>
+                Eliminaremos su cuenta y toda la información asociada de nuestros
+                sistemas
+              </li>
+              <li>
+                Todos sus datos personales, incluyendo perfil, historial,
+                mensajes, calificaciones y transacciones, serán eliminados
+                permanentemente
+              </li>
+              <li>
+                Cualquier contenido que haya publicado que deba conservarse por
+                razones legales o regulatorias podrá ser retenido según nuestras
+                políticas de retención de datos y las leyes aplicables
+              </li>
+              <li>
+                Las disposiciones de estos Términos que por su naturaleza deben
+                sobrevivir continuarán en vigor
+              </li>
+            </ul>
           </section>
 
           <section className="mb-8">

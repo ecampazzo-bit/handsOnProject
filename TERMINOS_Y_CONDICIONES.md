@@ -196,7 +196,17 @@ Sin embargo, ningún método de transmisión por internet o almacenamiento elect
 
 ### 5.5. Retención de Datos
 
-Conservamos su información personal durante el tiempo necesario para cumplir con los fines descritos en estos Términos, a menos que la ley requiera o permita un período de retención más largo. Cuando eliminamos información, lo hacemos de forma segura utilizando métodos que hacen que la información sea irrecuperable.
+Conservamos su información personal durante el tiempo necesario para cumplir con los fines descritos en estos Términos, a menos que la ley requiera o permita un período de retención más largo.
+
+**Eliminación de Datos:**
+
+Cuando solicite la eliminación de su cuenta, implementamos un período de gracia de 60 días antes de procesar la eliminación definitiva. Durante este período:
+
+- Sus datos se conservarán para permitir la cancelación de la solicitud y la resolución de asuntos pendientes
+- Después de 60 días, procederemos con la eliminación permanente de sus datos
+- La eliminación se realiza de forma segura utilizando métodos que hacen que la información sea irrecuperable
+
+Algunos datos pueden ser retenidos por períodos más largos cuando sea requerido por ley, órdenes judiciales, resolución de disputas, o para cumplir con obligaciones legales y regulatorias.
 
 ### 5.6. Sus Derechos de Privacidad
 
@@ -356,7 +366,39 @@ Usted conserva todos los derechos sobre su contenido.
 
 ### 10.1. Terminación por el Usuario
 
-Puede terminar su cuenta en cualquier momento eliminando la Aplicación de su dispositivo o contactándonos para solicitar la eliminación de su cuenta.
+Puede solicitar la eliminación de su cuenta en cualquier momento a través de la opción correspondiente en la Aplicación o contactándonos directamente.
+
+**Proceso de Eliminación de Cuenta:**
+
+Cuando solicite la eliminación de su cuenta:
+
+- Su solicitud será enviada al equipo de administración para su revisión
+- La eliminación definitiva de su cuenta se programará para **60 días** después de la fecha de su solicitud
+- Este período de gracia de 60 días se establece por cuestiones legales y de seguridad, permitiendo:
+  - La resolución de posibles disputas pendientes
+  - La finalización de transacciones en curso
+  - El cumplimiento de obligaciones legales y regulatorias
+  - La protección de datos y seguridad del sistema
+
+**Durante el Período de Gracia:**
+
+- Puede continuar utilizando su cuenta normalmente hasta la fecha programada de eliminación
+- Puede cancelar su solicitud de eliminación en cualquier momento antes de la fecha programada
+- Recibirá notificaciones sobre el estado de su solicitud y la fecha programada de eliminación
+- Su cuenta permanecerá activa y accesible hasta la fecha de eliminación programada
+
+**Después de la Eliminación:**
+
+Una vez procesada la eliminación de su cuenta (después de los 60 días):
+
+- Su cuenta y todos los datos asociados serán eliminados permanentemente de nuestros sistemas
+- Se eliminarán todos sus datos personales, historial de trabajos, mensajes, calificaciones y cualquier otra información relacionada
+- Esta acción es permanente e irreversible
+- No podrá recuperar su cuenta ni los datos asociados después de la eliminación
+
+**Derecho de Cancelación:**
+
+Usted tiene el derecho de cancelar su solicitud de eliminación en cualquier momento antes de la fecha programada de eliminación. Puede hacerlo a través de la Aplicación o contactándonos directamente.
 
 ### 10.2. Terminación por la Compañía
 
@@ -369,11 +411,18 @@ Nos reservamos el derecho de suspender o terminar su acceso a la Aplicación en 
 
 ### 10.3. Efectos de la Terminación
 
-Al terminar su cuenta:
+**Al solicitar la terminación de su cuenta:**
 
-- Su derecho a utilizar la Aplicación cesará inmediatamente
-- Podemos eliminar o desactivar su cuenta y toda la información asociada
-- Cualquier contenido que haya publicado puede permanecer en la Aplicación según nuestras políticas de retención de datos
+- Su solicitud será procesada según el procedimiento descrito en la sección 10.1
+- Su cuenta permanecerá activa durante el período de gracia de 60 días
+- Puede cancelar su solicitud en cualquier momento antes de la fecha programada de eliminación
+
+**Al procesarse la eliminación definitiva (después de 60 días):**
+
+- Su derecho a utilizar la Aplicación cesará permanentemente
+- Eliminaremos su cuenta y toda la información asociada de nuestros sistemas
+- Todos sus datos personales, incluyendo perfil, historial, mensajes, calificaciones y transacciones, serán eliminados permanentemente
+- Cualquier contenido que haya publicado que deba conservarse por razones legales o regulatorias podrá ser retenido según nuestras políticas de retención de datos y las leyes aplicables
 - Las disposiciones de estos Términos que por su naturaleza deben sobrevivir continuarán en vigor
 
 ---

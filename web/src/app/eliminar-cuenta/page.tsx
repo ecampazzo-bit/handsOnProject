@@ -82,7 +82,7 @@ export default function EliminarCuenta() {
     }
 
     try {
-      // Obtener el ID del usuario actual
+      // Verificar que el usuario esté autenticado
       const {
         data: { user: currentUser },
       } = await supabase.auth.getUser();
@@ -91,46 +91,29 @@ export default function EliminarCuenta() {
         throw new Error("No se pudo obtener la información del usuario");
       }
 
-      const userId = currentUser.id;
+      // Llamar a la función RPC que crea la solicitud de eliminación
+      const { data, error: rpcError } = await supabase.rpc('solicitar_eliminacion_cuenta', {
+        p_motivo: null
+      });
 
-      // 1. Eliminar el usuario de la tabla public.users
-      const { error: deleteUserError } = await supabase
-        .from("users")
-        .delete()
-        .eq("id", userId);
-
-      if (deleteUserError) {
-        // Si hay un error, puede ser por RLS, intentar con una función SQL
-        console.error("Error eliminando usuario de public.users:", deleteUserError);
-        // Continuar con la eliminación de auth aunque falle la eliminación de la tabla
+      if (rpcError) {
+        console.error("Error en función RPC solicitar_eliminacion_cuenta:", rpcError);
+        throw new Error(rpcError.message || "Error al solicitar la eliminación de la cuenta");
       }
 
-      // 2. Eliminar el usuario de Supabase Auth
-      // Nota: En el cliente, no podemos eliminar directamente desde auth.users
-      // Necesitamos usar una función edge o hacerlo desde el servidor
-      // Por ahora, desactivaremos la cuenta marcándola como inactiva
-      // y cerraremos la sesión
-      
-      // Marcar como inactivo en la tabla users (si aún existe)
-      try {
-        await supabase
-          .from("users")
-          .update({ activo: false })
-          .eq("id", userId);
-      } catch (updateError) {
-        // Ignorar errores si la tabla ya fue eliminada
-        console.log("No se pudo actualizar el estado, probablemente ya fue eliminado");
+      // Verificar la respuesta de la función RPC
+      if (!data || !data.success) {
+        const errorMessage = data?.error || "Error al solicitar la eliminación de la cuenta";
+        throw new Error(errorMessage);
       }
 
-      // Cerrar sesión
-      await supabase.auth.signOut();
-
+      // No cerramos la sesión, el usuario puede seguir usando la cuenta hasta la fecha de eliminación
       // Mostrar mensaje de éxito antes de redirigir
       setSuccess(true);
       
       // Redirigir a la página principal después de 3 segundos
       setTimeout(() => {
-        router.push("/?cuenta-eliminada=true");
+        router.push("/?solicitud-eliminacion-enviada=true");
       }, 3000);
     } catch (err: any) {
       console.error("Error eliminando cuenta:", err);
@@ -182,7 +165,7 @@ export default function EliminarCuenta() {
           </div>
           <div className="space-y-4">
             <Link
-              href="/admin/login"
+              href="/eliminar-cuenta/login"
               className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
             >
               Iniciar Sesión
@@ -222,34 +205,43 @@ export default function EliminarCuenta() {
         </div>
 
         <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
-          <p className="font-semibold mb-2">⚠️ Advertencia</p>
-          <p className="text-sm">
-            Al eliminar tu cuenta, se eliminarán permanentemente:
+          <p className="font-semibold mb-2">⚠️ Información importante sobre la eliminación de cuenta</p>
+          <p className="text-sm mb-2">
+            Al solicitar la eliminación de tu cuenta:
           </p>
-          <ul className="text-sm mt-2 list-disc list-inside space-y-1">
-            <li>Tu perfil y datos personales</li>
-            <li>Tu historial de trabajos y solicitudes</li>
-            <li>Tus mensajes y conversaciones</li>
-            <li>Tus calificaciones y reseñas</li>
+          <ul className="text-sm mt-2 list-disc list-inside space-y-1 mb-3">
+            <li>Tu solicitud será enviada al equipo de administración</li>
+            <li>La eliminación se procesará en <strong>60 días</strong> desde la fecha de solicitud</li>
+            <li>Durante este período puedes cancelar tu solicitud si cambias de opinión</li>
+            <li>Después de 60 días se eliminarán permanentemente: tu perfil, historial de trabajos, mensajes, calificaciones y todos los datos relacionados</li>
           </ul>
-          <p className="text-sm mt-2 font-semibold">
-            Esta acción es permanente e irreversible.
+          <p className="text-sm mt-2 font-semibold bg-yellow-100 p-2 rounded">
+            ⏰ Período de gracia: La eliminación se procesará 60 días después de tu solicitud por cuestiones legales y de seguridad. Puedes cancelar la solicitud antes de esta fecha desde tu perfil.
+          </p>
+          <p className="text-sm mt-2">
+            Esta acción, una vez procesada, es permanente e irreversible.
           </p>
         </div>
 
         {success ? (
           <div className="space-y-6">
-            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
-              <p className="font-semibold">✓ Cuenta eliminada exitosamente</p>
-              <p className="text-sm mt-1">
-                Tu cuenta ha sido eliminada. Serás redirigido a la página principal en unos segundos.
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg">
+              <p className="font-semibold">✓ Solicitud de eliminación enviada</p>
+              <p className="text-sm mt-2">
+                Tu solicitud de eliminación de cuenta ha sido enviada al equipo de administración.
+              </p>
+              <p className="text-sm mt-2">
+                <strong>Fecha programada de eliminación:</strong> 60 días a partir de ahora.
+              </p>
+              <p className="text-sm mt-2">
+                Recibirás un correo electrónico de confirmación y podrás cancelar tu solicitud antes de la fecha programada.
               </p>
             </div>
             <Link
               href="/"
               className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
             >
-              Ir al inicio ahora
+              Continuar al inicio
             </Link>
           </div>
         ) : (
@@ -294,7 +286,7 @@ export default function EliminarCuenta() {
               placeholder="Ingresa tu contraseña para mayor seguridad"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Verificaremos tu contraseña antes de eliminar la cuenta
+              Verificaremos tu contraseña antes de enviar la solicitud de eliminación
             </p>
           </div>
 
@@ -322,7 +314,7 @@ export default function EliminarCuenta() {
             disabled={loading || confirmText.toLowerCase() !== "eliminar"}
             className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Eliminando cuenta..." : "Eliminar mi cuenta permanentemente"}
+            {loading ? "Enviando solicitud..." : "Solicitar eliminación de cuenta"}
           </button>
 
           <div className="text-center">
