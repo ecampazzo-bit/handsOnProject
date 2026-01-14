@@ -1,0 +1,38 @@
+# Directorios nativos generados automáticamente por EAS
+android/
+ios/
+
+# Build artifacts
+.expo/
+.expo-shared/
+dist/
+build/
+*.log
+
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+*.swp
+*.swo
+
+# Certificates and keys
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Archives
+*.zip
+*.tar.gz
