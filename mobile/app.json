@@ -2,7 +2,7 @@
   "expo": {
     "name": "ofiSí",
     "slug": "handson-app",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "orientation": "portrait",
     "icon": "./assets/logocolor.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ofisi.mobile",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "NSCameraUsageDescription": "ofiSi necesita acceso a tu cámara para que puedas tomar fotos de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes.",
         "NSPhotoLibraryUsageDescription": "ofiSi necesita acceso a tu galería de fotos para que puedas seleccionar imágenes de perfil y documentar los trabajos realizados. Estas imágenes te ayudan a crear tu perfil profesional y mostrar tu trabajo a los clientes.",
@@ -26,7 +26,8 @@
         "LSApplicationQueriesSchemes": [
           "whatsapp",
           "whatsapp-business"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "usesAppleSignIn": false
     },
@@ -38,14 +39,15 @@
       "package": "com.ofisi.mobile",
       "versionCode": 9,
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
       ],
       "blockedPermissions": []
     },
@@ -64,7 +66,6 @@
       }
     },
     "plugins": [
-      "expo-asset",
       [
         "expo-image-picker",
         {
