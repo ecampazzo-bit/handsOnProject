@@ -1,11 +1,43 @@
 # Instrucciones para Desplegar en Hostinger
 
+## Preparar el Despliegue
+
+### Opción 1: Usar el Script Automático (Recomendado)
+
+Ejecuta el script de preparación desde el directorio `web/`:
+
+```bash
+cd web
+./prepare-deploy.sh
+```
+
+Este script:
+- Limpia builds anteriores
+- Compila la aplicación para producción
+- Crea un archivo ZIP (`web-deploy-YYYYMMDD-HHMMSS.zip`) con todos los archivos necesarios
+
+### Opción 2: Preparación Manual
+
+Si prefieres hacerlo manualmente:
+
+```bash
+cd web
+npm run build
+# Luego crea un ZIP excluyendo node_modules, .next, .env.local, etc.
+```
+
 ## Archivos Incluidos en web-deploy.zip
 
-El archivo `web-deploy.zip` contiene todos los archivos necesarios para desplegar la aplicación Next.js en Hostinger, excluyendo:
+El archivo `web-deploy.zip` contiene todos los archivos necesarios para desplegar la aplicación Next.js en Hostinger, incluyendo:
+- ✅ Código fuente completo
+- ✅ Archivos de configuración (next.config.js, package.json, etc.)
+- ✅ Build de producción (`.next/` ya compilado)
+- ✅ Assets públicos (imágenes, logos, etc.)
+
+**Excluye:**
 - `node_modules/` (se instalará en el servidor)
-- `.next/` (se generará durante el build)
 - `.env.local` (debe crearse en el servidor con tus credenciales)
+- Archivos temporales y de desarrollo
 
 ## Pasos para Desplegar
 
@@ -26,15 +58,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key_de_supabase
 ### 4. Instalar dependencias
 En el servidor, ejecuta:
 ```bash
-npm install
+npm install --production
 ```
 
-### 5. Compilar la aplicación
-```bash
-npm run build
-```
+**Nota:** Como el build ya está incluido en el ZIP, puedes usar `--production` para instalar solo las dependencias de producción (más rápido).
 
-### 6. Iniciar la aplicación
+### 5. Iniciar la aplicación
+
+**Nota:** Como el build ya está incluido en el ZIP, NO necesitas ejecutar `npm run build` nuevamente. Solo instala las dependencias e inicia la aplicación.
 
 **Opción A: Con PM2 (recomendado para producción)**
 ```bash

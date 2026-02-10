@@ -34,9 +34,9 @@ fi
 echo -e "${YELLOW}📝 Creando archivo ZIP para despliegue...${NC}"
 
 # Crear el ZIP excluyendo los archivos en .deployignore
+# NOTA: Incluimos .next porque el build ya está compilado
 zip -r "$ZIP_NAME" . \
     -x "node_modules/*" \
-    -x ".next/*" \
     -x ".env.local" \
     -x ".env" \
     -x "*.log" \

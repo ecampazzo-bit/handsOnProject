@@ -527,23 +527,27 @@ export default function Home() {
             tus servicios hoy mismo.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button
-              disabled
-              className="bg-white/50 text-blue-600/70 px-8 py-4 rounded-full text-lg font-semibold cursor-not-allowed shadow-lg flex items-center gap-3 opacity-75"
+            <a
+              href="https://apps.apple.com/app/ofisí/id6757622074"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white text-blue-600 px-8 py-4 rounded-full text-lg font-semibold cursor-pointer shadow-lg flex items-center gap-3 hover:bg-blue-50 transition-all transform hover:scale-105"
             >
               <span className="text-2xl">📱</span>
-              <span>Próximamente en App Store</span>
-            </button>
-            <button
-              disabled
-              className="bg-white/50 text-blue-600/70 px-8 py-4 rounded-full text-lg font-semibold cursor-not-allowed shadow-lg flex items-center gap-3 opacity-75"
+              <span>Descargar en App Store</span>
+            </a>
+            <a
+              href="https://play.google.com/store/apps/details?id=com.ofisi.mobile&pcampaignid=web_share"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white text-blue-600 px-8 py-4 rounded-full text-lg font-semibold cursor-pointer shadow-lg flex items-center gap-3 hover:bg-blue-50 transition-all transform hover:scale-105"
             >
               <span className="text-2xl">🤖</span>
-              <span>Próximamente en Google Play</span>
-            </button>
+              <span>Descargar en Google Play</span>
+            </a>
           </div>
           <p className="mt-8 text-blue-200 text-sm">
-            Próximamente disponible en App Store y Google Play
+            Disponible en App Store y Google Play
           </p>
         </div>
       </section>
